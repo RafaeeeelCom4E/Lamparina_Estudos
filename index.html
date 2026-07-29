@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Lamparina — organize seus dias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --radius: 14px;
+  --radius-sm: 8px;
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+[data-theme="teal"]{
+  --bg:#090c11; --bg-elev:#0f141c; --bg-card:#131a24; --bg-card-hover:#171f2b;
+  --border:#1e2733; --border-soft:#171e28;
+  --text:#eaeef4; --text-dim:#93a0b3; --text-faint:#5d6879;
+  --accent:#2fd9c4; --accent-dim:#1a8f80; --accent-soft:rgba(47,217,196,.13); --accent-text:#04211d;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24; --blue:#60a5fa;
+}
+[data-theme="azul"]{
+  --bg:#080b12; --bg-elev:#0d1320; --bg-card:#111a2b; --bg-card-hover:#152036;
+  --border:#1c2740; --border-soft:#151d30;
+  --text:#e9edf7; --text-dim:#8d9ab2; --text-faint:#5a6579;
+  --accent:#5b8dff; --accent-dim:#3a5fc4; --accent-soft:rgba(91,141,255,.15); --accent-text:#eaf0ff;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24; --blue:#60a5fa;
+}
+[data-theme="roxo"]{
+  --bg:#0b0912; --bg-elev:#130f1e; --bg-card:#181328; --bg-card-hover:#1e1832;
+  --border:#2a2140; --border-soft:#1e1830;
+  --text:#ede9f7; --text-dim:#9b8fb5; --text-faint:#655a7a;
+  --accent:#b18aff; --accent-dim:#7c5cd6; --accent-soft:rgba(177,138,255,.16); --accent-text:#1c1330;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24; --blue:#60a5fa;
+}
+[data-theme="ambar"]{
+  --bg:#0c0a08; --bg-elev:#141009; --bg-card:#1c150e; --bg-card-hover:#241a10;
+  --border:#332616; --border-soft:#241c12;
+  --text:#f5eee2; --text-dim:#b3a189; --text-faint:#75695a;
+  --accent:#f2a93c; --accent-dim:#c4841f; --accent-soft:rgba(242,169,60,.16); --accent-text:#241505;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24; --blue:#60a5fa;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,.brand{font-family:'Space Grotesk',sans-serif;}
+button{font-family:inherit; cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::selection{background:var(--accent-soft); color:var(--text);}
+
+body::before{
+  content:'';
+  position:fixed; inset:0;
+  background:
+    radial-gradient(600px 400px at 15% -5%, var(--accent-soft), transparent 60%),
+    radial-gradient(500px 350px at 100% 10%, var(--accent-soft), transparent 55%);
+  opacity:.6; pointer-events:none; z-index:0;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:236px 1fr;
+  min-height:100vh;
+  position:relative; z-index:1;
+}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar{
+  background:var(--bg-elev);
+  border-right:1px solid var(--border-soft);
+  padding:22px 14px;
+  display:flex; flex-direction:column;
+  gap:4px;
+  position:sticky; top:0; height:100vh;
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  padding:6px 10px 22px 10px;
+  color:var(--text);
+}
+.brand .lamp-icon{width:30px; height:30px; color:var(--accent); flex:none;}
+.brand-text{font-size:16.5px; font-weight:700; letter-spacing:.2px;}
+.brand-text small{display:block; font-family:'Inter',sans-serif; font-weight:500; font-size:10.5px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase; margin-top:1px;}
+
+.navgroup{display:flex; flex-direction:column; gap:2px; margin-bottom:18px;}
+.navitem{
+  display:flex; align-items:center; gap:11px;
+  padding:9px 12px;
+  border-radius:var(--radius-sm);
+  color:var(--text-dim);
+  font-size:13.5px; font-weight:500;
+  border:none; background:transparent; text-align:left; width:100%;
+  transition:background .15s var(--ease), color .15s var(--ease);
+}
+.navitem svg{width:17px; height:17px; flex:none; opacity:.85;}
+.navitem:hover{background:var(--bg-card); color:var(--text);}
+.navitem.active{background:var(--accent-soft); color:var(--accent);}
+.navitem.active svg{opacity:1;}
+
+.sidebar-bottom{margin-top:auto; display:flex; flex-direction:column; gap:10px;}
+.room-chip{
+  display:flex; align-items:center; gap:9px;
+  background:var(--bg-card); border:1px solid var(--border-soft);
+  border-radius:var(--radius-sm); padding:9px 10px; font-size:12.5px; color:var(--text-dim);
+  cursor:pointer;
+}
+.room-chip:hover{border-color:var(--text-faint);}
+.room-chip .dot{width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none;}
+.room-chip .dot.offline{background:var(--text-faint);}
+.room-chip b{color:var(--text); font-weight:600;}
+
+.user-row{
+  display:flex; align-items:center; gap:9px;
+  padding:8px 8px; border-radius:var(--radius-sm);
+  border:1px solid var(--border-soft); background:var(--bg-card);
+}
+.avatar{
+  width:30px; height:30px; border-radius:9px; flex:none;
+  background:var(--accent-soft); color:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:13px;
+}
+.avatar.sm{width:22px; height:22px; font-size:10.5px; border-radius:7px;}
+.user-meta{display:flex; flex-direction:column; overflow:hidden; flex:1;}
+.user-meta span{font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.user-meta small{font-size:10.5px; color:var(--text-faint);}
+.icon-btn{
+  background:transparent; border:none; color:var(--text-faint);
+  width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+}
+.icon-btn:hover{background:var(--border-soft); color:var(--text);}
+.icon-btn svg{width:15px; height:15px;}
+
+/* ---------- MAIN ---------- */
+.main{padding:26px 30px 60px; max-width:1180px; width:100%;}
+.topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; gap:14px; flex-wrap:wrap;}
+.topbar h1{font-size:21px; font-weight:600;}
+.topbar-sub{color:var(--text-faint); font-size:12.5px; margin-top:3px;}
+.topbar-actions{display:flex; align-items:center; gap:8px;}
+
+.local-banner{
+  display:flex; align-items:center; gap:10px; background:var(--bg-card); border:1px solid var(--border-soft);
+  border-left:3px solid var(--yellow); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:20px;
+  font-size:12.5px; color:var(--text-dim);
+}
+.local-banner b{color:var(--text);}
+.local-banner code{background:var(--bg-elev); padding:1px 6px; border-radius:5px; color:var(--accent);}
+
+.theme-swatches{display:flex; gap:6px; background:var(--bg-card); border:1px solid var(--border-soft); padding:5px; border-radius:99px;}
+.swatch{width:20px; height:20px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:transform .15s var(--ease);}
+.swatch.active{border-color:var(--text); transform:scale(1.08);}
+.swatch[data-t="teal"]{background:#2fd9c4;}
+.swatch[data-t="azul"]{background:#5b8dff;}
+.swatch[data-t="roxo"]{background:#b18aff;}
+.swatch[data-t="ambar"]{background:#f2a93c;}
+
+.mobile-menu-btn{display:none; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); width:36px; height:36px; align-items:center; justify-content:center; color:var(--text);}
+.mobile-menu-btn svg{width:18px; height:18px;}
+
+.view{display:none;}
+.view.active{display:block; animation:fadein .25s var(--ease);}
+@keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+/* ---- Dashboard ---- */
+.stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px;}
+.stat-card{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px 18px;}
+.stat-card .num{font-family:'Space Grotesk'; font-size:24px; font-weight:700;}
+.stat-card .label{color:var(--text-faint); font-size:12px; margin-top:3px;}
+.stat-card.accent{border-color:var(--accent-dim); background:linear-gradient(160deg, var(--accent-soft), var(--bg-card) 70%);}
+.stat-card.accent .num{color:var(--accent);}
+
+.quick-add{display:flex; gap:8px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:8px; margin-bottom:22px; flex-wrap:wrap;}
+.quick-add input[type=text]{flex:1; min-width:160px; background:transparent; border:none; outline:none; color:var(--text); font-size:13.5px; padding:8px 10px;}
+.quick-add input[type=date]{background:var(--bg-elev); border:1px solid var(--border-soft); color:var(--text-dim); border-radius:var(--radius-sm); padding:0 8px; font-size:12.5px; outline:none;}
+.btn{background:var(--accent); color:var(--accent-text); border:none; border-radius:var(--radius-sm); padding:9px 16px; font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; transition:filter .15s var(--ease), transform .1s var(--ease);}
+.btn:hover{filter:brightness(1.08);}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text-dim);}
+.btn-ghost:hover{color:var(--text); border-color:var(--text-faint);}
+.btn svg{width:15px; height:15px;}
+
+.section-title{display:flex; align-items:center; justify-content:space-between; margin:26px 0 12px;}
+.section-title h2{font-size:14.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.6px;}
+
+.task-list{display:flex; flex-direction:column; gap:8px;}
+.task{display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:11px 13px; transition:background .15s var(--ease), border-color .15s;}
+.task:hover{background:var(--bg-card-hover);}
+.task.done{opacity:.55;}
+.check{width:20px; height:20px; border-radius:6px; border:1.6px solid var(--text-faint); flex:none; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s var(--ease);}
+.check svg{width:12px; height:12px; opacity:0; transition:opacity .1s;}
+.task.done .check{background:var(--accent); border-color:var(--accent);}
+.task.done .check svg{opacity:1; color:var(--accent-text);}
+.task-text{flex:1; font-size:13.5px;}
+.task.done .task-text{text-decoration:line-through; color:var(--text-faint);}
+.task-date{font-size:11.5px; color:var(--text-faint); flex:none; background:var(--bg-elev); padding:3px 8px; border-radius:99px; border:1px solid var(--border-soft);}
+.task-del{background:transparent; border:none; color:var(--text-faint); width:24px; height:24px; border-radius:6px; flex:none; display:flex; align-items:center; justify-content:center;}
+.task-del:hover{color:var(--red); background:rgba(248,113,113,.1);}
+.task-del svg{width:14px; height:14px;}
+.empty{color:var(--text-faint); font-size:13px; text-align:center; padding:26px 10px; border:1px dashed var(--border); border-radius:var(--radius);}
+
+/* ---- Calendar ---- */
+.cal-layout{display:grid; grid-template-columns:1fr 300px; gap:18px; align-items:start;}
+.cal-card{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:18px; overflow:hidden;}
+.cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+.cal-head h2{font-size:16px; font-weight:600; text-transform:capitalize;}
+.cal-nav{display:flex; gap:6px;}
+.cal-navbtn{width:30px; height:30px; border-radius:8px; border:1px solid var(--border-soft); background:var(--bg-elev); color:var(--text-dim); display:flex; align-items:center; justify-content:center;}
+.cal-navbtn:hover{color:var(--text); border-color:var(--text-faint);}
+.cal-navbtn svg{width:15px; height:15px;}
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; font-size:11.5px; color:var(--text-dim);}
+.legend span{display:inline-flex; align-items:center; gap:5px;}
+.legend i{width:8px; height:8px; border-radius:50%; display:inline-block;}
+.dow-row{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px;}
+.dow-row div{text-align:center; font-size:11px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.5px;}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+.day-cell{aspect-ratio:1/.82; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-elev); padding:7px; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:border-color .15s, background .15s;}
+.day-cell:hover{border-color:var(--accent-dim);}
+.day-cell.empty-cell{visibility:hidden;}
+.day-cell.today{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
+.day-cell.selected{background:var(--accent-soft); border-color:var(--accent);}
+.day-num{font-size:12.5px; font-weight:600; color:var(--text-dim);}
+.day-cell.today .day-num{color:var(--accent);}
+.day-lamp{width:16px; height:16px; align-self:flex-end; color:var(--text-faint); opacity:.5;}
+.day-lamp.lit{color:var(--accent); opacity:1; filter:drop-shadow(0 0 4px var(--accent));}
+.day-lamp.partial{color:var(--yellow); opacity:.9;}
+
+.side-panel{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px; position:sticky; top:20px;}
+.side-panel h3{font-size:14px; margin-bottom:2px; text-transform:capitalize;}
+.side-panel .sub{font-size:11.5px; color:var(--text-faint); margin-bottom:14px;}
+.side-add{display:flex; gap:6px; margin-bottom:12px;}
+.side-add input{flex:1; background:var(--bg-elev); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; color:var(--text); font-size:12.5px; outline:none;}
+.side-add input:focus{border-color:var(--accent-dim);}
+.side-add button{background:var(--accent); border:none; border-radius:8px; width:34px; flex:none; color:var(--accent-text); display:flex; align-items:center; justify-content:center;}
+.side-add button svg{width:16px; height:16px;}
+
+.pillbar{display:flex; gap:8px; margin-bottom:16px;}
+.pill{background:var(--bg-card); border:1px solid var(--border-soft); color:var(--text-dim); padding:7px 14px; border-radius:99px; font-size:12.5px; font-weight:600;}
+.pill.active{background:var(--accent-soft); border-color:var(--accent-dim); color:var(--accent);}
+
+/* ---- Equipe / leaderboard ---- */
+.room-banner{display:flex; align-items:center; justify-content:space-between; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px 18px; margin-bottom:20px; flex-wrap:wrap; gap:12px;}
+.room-banner .code-box{display:flex; align-items:center; gap:8px;}
+.code-pill{background:var(--bg-elev); border:1px solid var(--border-soft); padding:8px 14px; border-radius:9px; font-family:'Space Grotesk'; font-weight:700; letter-spacing:1.5px; color:var(--accent);}
+.lb-row{display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px;}
+.lb-rank{width:20px; text-align:center; color:var(--text-faint); font-weight:700; font-size:12.5px;}
+.lb-name{flex:1; font-size:13.5px; font-weight:600;}
+.lb-bar-wrap{flex:1; max-width:220px; height:6px; background:var(--bg-elev); border-radius:99px; overflow:hidden;}
+.lb-bar{height:100%; background:var(--accent); border-radius:99px;}
+.lb-stat{font-size:11.5px; color:var(--text-faint); width:90px; text-align:right;}
+
+/* Overlays / auth */
+.overlay{position:fixed; inset:0; background:rgba(5,7,10,.72); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
+.login-card{width:100%; max-width:390px; background:var(--bg-elev); border:1px solid var(--border-soft); border-radius:18px; padding:30px 26px; text-align:center;}
+.login-card .lamp-icon{width:44px; height:44px; color:var(--accent); margin:0 auto 14px;}
+.login-card h2{font-size:19px; margin-bottom:4px;}
+.login-card p{color:var(--text-faint); font-size:12.5px; margin-bottom:20px; line-height:1.5;}
+.field{text-align:left; margin-bottom:12px;}
+.field label{font-size:11.5px; color:var(--text-dim); display:block; margin-bottom:5px; font-weight:600;}
+.field input{width:100%; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; color:var(--text); font-size:13.5px; outline:none;}
+.field input:focus{border-color:var(--accent-dim);}
+.login-card .btn{width:100%; justify-content:center; padding:11px; margin-top:6px; font-size:13.5px;}
+.login-note{font-size:10.5px; color:var(--text-faint); margin-top:16px; line-height:1.5;}
+.auth-tabs{display:flex; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:10px; padding:3px; margin-bottom:18px;}
+.auth-tab{flex:1; text-align:center; padding:8px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--text-faint); background:transparent; border:none;}
+.auth-tab.active{background:var(--accent-soft); color:var(--accent);}
+.auth-error{background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:var(--red); font-size:11.5px; padding:8px 10px; border-radius:8px; margin-bottom:12px; text-align:left; display:none;}
+.room-options{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+.or-sep{display:flex; align-items:center; gap:10px; color:var(--text-faint); font-size:11px; margin:14px 0;}
+.or-sep::before,.or-sep::after{content:''; flex:1; height:1px; background:var(--border-soft);}
+.link-btn{background:none; border:none; color:var(--text-faint); font-size:11.5px; text-decoration:underline; margin-top:14px;}
+.link-btn:hover{color:var(--text-dim);}
+
+/* Mobile */
+@media (max-width: 880px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{position:fixed; left:0; top:0; bottom:0; width:236px; z-index:40; transform:translateX(-100%); transition:transform .25s var(--ease); box-shadow:20px 0 40px rgba(0,0,0,.4);}
+  .sidebar.open{transform:none;}
+  .sidebar-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:39; display:none;}
+  .sidebar-backdrop.show{display:block;}
+  .mobile-menu-btn{display:flex;}
+  .main{padding:18px 16px 40px;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .cal-layout{grid-template-columns:1fr;}
+  .side-panel{position:static;}
+  .day-cell{aspect-ratio:1/1;}
+  .topbar h1{font-size:18px;}
+}
+@media (max-width:480px){
+  .stat-grid{grid-template-columns:1fr 1fr;}
+  .legend{font-size:10.5px; gap:10px;}
+}
+</style>
+</head>
+<body data-theme="teal">
+
+<!-- MODO LOCAL (Firebase não configurado) -->
+<div class="overlay" id="localOverlay" style="display:none;">
+  <div class="login-card">
+    <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="localLampSvg"></svg>
+    <h2>Bem-vindo(a) à Lamparina</h2>
+    <p>O Firebase ainda não foi configurado (arquivo <code>firebase-config.js</code>), então este perfil fica salvo apenas neste dispositivo.</p>
+    <div class="field"><label>Seu nome</label><input type="text" id="loginName" placeholder="Ex: Barney" maxlength="24"></div>
+    <div class="field"><label>Nome da sala / equipe</label><input type="text" id="loginRoom" placeholder="Ex: Turma de Cálculo II" maxlength="30"></div>
+    <button class="btn" id="loginBtn" style="justify-content:center;">Entrar</button>
+    <div class="login-note">Preencha o <code>firebase-config.js</code> com os dados do seu projeto Firebase para ativar contas de verdade e salas compartilhadas em tempo real (veja o README.md).</div>
+  </div>
+</div>
+
+<!-- AUTENTICAÇÃO (Firebase) -->
+<div class="overlay" id="authOverlay" style="display:none;">
+  <div class="login-card">
+    <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="authLampSvg"></svg>
+    <h2>Bem-vindo(a) à Lamparina</h2>
+    <p>Entre com sua conta para acessar suas atividades e a sua sala de equipe.</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="entrar">Entrar</button>
+      <button class="auth-tab" data-tab="criar">Criar conta</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <div class="field" id="fieldNome" style="display:none;"><label>Seu nome</label><input type="text" id="authName" placeholder="Ex: Barney" maxlength="24"></div>
+    <div class="field"><label>E-mail</label><input type="email" id="authEmail" placeholder="voce@email.com"></div>
+    <div class="field"><label>Senha</label><input type="password" id="authPass" placeholder="mínimo 6 caracteres"></div>
+    <button class="btn" id="authSubmitBtn" style="justify-content:center;">Entrar</button>
+  </div>
+</div>
+
+<!-- SALA -->
+<div class="overlay" id="roomOverlay" style="display:none;">
+  <div class="login-card">
+    <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="roomLampSvg"></svg>
+    <h2>Sua sala de estudos</h2>
+    <p>Crie uma sala nova para sua equipe ou entre com um código que já existe.</p>
+    <div class="auth-error" id="roomError"></div>
+    <div class="room-options">
+      <div class="field"><label>Código da sala</label><input type="text" id="roomCode" placeholder="ex: calc2-turma-a"></div>
+      <button class="btn" id="createRoomBtn">Criar esta sala</button>
+      <div class="or-sep">ou</div>
+      <button class="btn btn-ghost" id="joinRoomBtn" style="justify-content:center;">Entrar em sala existente</button>
+    </div>
+    <button class="link-btn" id="signOutFromRoomBtn">Sair da conta</button>
+  </div>
+</div>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="brandLampSvg"></svg>
+      <div class="brand-text">Lamparina<small>organize seus dias</small></div>
+    </div>
+
+    <div class="navgroup">
+      <button class="navitem active" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Painel
+      </button>
+      <button class="navitem" data-view="calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        Calendário
+      </button>
+      <button class="navitem" data-view="atividades">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
+        Atividades
+      </button>
+      <button class="navitem" data-view="equipe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.3c2.6.2 4.5 2.4 4.5 5"/></svg>
+        Equipe
+      </button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="room-chip" id="roomChip" title="Trocar de sala"><span class="dot" id="roomDot"></span><span>Sala: <b id="roomChipName">—</b></span></div>
+      <div class="user-row">
+        <div class="avatar" id="userAvatar">?</div>
+        <div class="user-meta"><span id="userNameLabel">Visitante</span><small id="userModeLabel">perfil local</small></div>
+        <button class="icon-btn" id="logoutBtn" title="Sair">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div>
+          <h1 id="viewTitle">Painel</h1>
+          <div class="topbar-sub" id="viewSub">Sua visão geral de hoje</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="theme-swatches" id="themeSwatches">
+          <div class="swatch active" data-t="teal"></div>
+          <div class="swatch" data-t="azul"></div>
+          <div class="swatch" data-t="roxo"></div>
+          <div class="swatch" data-t="ambar"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="local-banner" id="localBanner" style="display:none;">
+      ⚠️ <span><b>Modo local ativo.</b> Configure <code>firebase-config.js</code> e recarregue a página para ativar contas e salas compartilhadas com sua equipe em tempo real.</span>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card accent"><div class="num" id="statToday">0</div><div class="label">Concluídas hoje</div></div>
+        <div class="stat-card"><div class="num" id="statPending">0</div><div class="label">Pendentes hoje</div></div>
+        <div class="stat-card"><div class="num" id="statWeek">0</div><div class="label">Concluídas na semana</div></div>
+        <div class="stat-card"><div class="num" id="statStreak">0</div><div class="label">Dias seguidos em dia</div></div>
+      </div>
+
+      <div class="quick-add">
+        <input type="text" id="quickInput" placeholder='Nova atividade, ex: "Revisar capítulo 3"'>
+        <input type="date" id="quickDate">
+        <button class="btn" id="quickAddBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar
+        </button>
+      </div>
+
+      <div class="section-title"><h2>Hoje</h2></div>
+      <div class="task-list" id="todayList"></div>
+
+      <div class="section-title"><h2>Próximos dias</h2></div>
+      <div class="task-list" id="upcomingList"></div>
+    </section>
+
+    <!-- CALENDARIO -->
+    <section class="view" id="view-calendario">
+      <div class="cal-layout">
+        <div class="cal-card">
+          <div class="cal-head">
+            <h2 id="calMonthLabel">Agosto de 2026</h2>
+            <div class="cal-nav">
+              <button class="cal-navbtn" id="calPrev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <button class="cal-navbtn" id="calNext"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div class="legend">
+            <span><i style="background:var(--accent)"></i>Lamparina acesa = tudo concluído</span>
+            <span><i style="background:var(--yellow)"></i>Parcial</span>
+            <span><i style="background:var(--text-faint)"></i>Pendente</span>
+          </div>
+          <div class="dow-row"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+
+        <div class="side-panel">
+          <h3 id="sideDateLabel">Selecione um dia</h3>
+          <div class="sub" id="sideDateSub"></div>
+          <div class="side-add">
+            <input type="text" id="sideInput" placeholder="Nova atividade...">
+            <button id="sideAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+          <div class="task-list" id="sideList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ATIVIDADES -->
+    <section class="view" id="view-atividades">
+      <div class="pillbar">
+        <button class="pill active" data-filter="todas">Todas</button>
+        <button class="pill" data-filter="pendentes">Pendentes</button>
+        <button class="pill" data-filter="concluidas">Concluídas</button>
+      </div>
+      <div class="task-list" id="allList"></div>
+    </section>
+
+    <!-- EQUIPE -->
+    <section class="view" id="view-equipe">
+      <div id="equipeCloudView" style="display:none;">
+        <div class="room-banner">
+          <div>
+            <div style="font-size:13px; color:var(--text-dim); margin-bottom:6px;">Sala atual</div>
+            <div class="code-box"><span class="code-pill" id="equipeRoomCode">—</span></div>
+          </div>
+          <button class="btn btn-ghost" id="changeRoomBtn">Trocar de sala</button>
+        </div>
+        <div class="section-title"><h2>Ranking da equipe</h2></div>
+        <div id="leaderboard"></div>
+      </div>
+      <div id="equipeLocalView" class="cal-card" style="max-width:520px; display:none;">
+        <h2 style="font-size:16px; margin-bottom:8px;">Salas compartilhadas — modo local</h2>
+        <p style="color:var(--text-dim); font-size:13px; line-height:1.7;">
+          Configure o <code>firebase-config.js</code> com os dados do seu projeto Firebase (veja o README.md) e recarregue a página
+          para criar ou entrar em uma sala de verdade, ver as atividades da sua equipe em tempo real e comparar o progresso de todos.
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+/* ================= LAMP SVG (signature icon) ================= */
+function lampSVG(lit){
+  const glow = lit ? `<circle cx="24" cy="24" r="13" fill="currentColor" opacity="0.18"/>` : '';
+  const rays = lit ? `
+    <g stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity="0.9">
+      <line x1="24" y1="4" x2="24" y2="9"/><line x1="24" y1="39" x2="24" y2="44"/>
+      <line x1="4" y1="24" x2="9" y2="24"/><line x1="39" y1="24" x2="44" y2="24"/>
+      <line x1="10.5" y1="10.5" x2="14" y2="14"/><line x1="34" y1="34" x2="37.5" y2="37.5"/>
+      <line x1="37.5" y1="10.5" x2="34" y2="14"/><line x1="14" y1="34" x2="10.5" y2="37.5"/>
+    </g>` : '';
+  return `${glow}${rays}<rect x="14" y="14" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2.3" fill="none"/><rect x="20.5" y="20.5" width="7" height="7" rx="1.4" fill="currentColor"/>`;
+}
+function miniLampSVG(state){
+  const litFlame = state !== 'off' ? `<rect x="8.6" y="8.6" width="3" height="3" rx=".6" fill="currentColor"/>` : `<rect x="8.6" y="8.6" width="3" height="3" rx=".6" fill="none" stroke="currentColor" stroke-width="1.2"/>`;
+  return `<rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/>${litFlame}`;
+}
+['brandLampSvg','loginLampSvg','localLampSvg','authLampSvg','roomLampSvg'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.innerHTML = lampSVG(true);
+});
+
+/* ================= THEME ================= */
+const THEME_KEY = 'lamparina_theme_v1';
+function applyTheme(t){
+  document.body.setAttribute('data-theme', t);
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active', s.dataset.t===t));
+  localStorage.setItem(THEME_KEY, t);
+}
+document.getElementById('themeSwatches').addEventListener('click', e=>{
+  const sw = e.target.closest('.swatch');
+  if(sw) applyTheme(sw.dataset.t);
+});
+applyTheme(localStorage.getItem(THEME_KEY) || 'teal');
+
+/* ================= FIREBASE INIT ================= */
+let CLOUD_ENABLED = false;
+let auth = null, db = null;
+try{
+  if(typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'SUA_API_KEY'){
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    CLOUD_ENABLED = true;
+  }
+}catch(e){ console.warn('Firebase não inicializado:', e); CLOUD_ENABLED = false; }
+
+/* ================= SHARED STATE ================= */
+const DB_KEY = 'lamparina_activities_v1';   // localStorage (modo local)
+const LOCAL_USER_KEY = 'lamparina_user_v1'; // localStorage (modo local)
+const ROOM_CACHE_KEY = 'lamparina_room_';   // + uid -> roomId (modo nuvem)
+
+let activities = {};   // { 'YYYY-MM-DD': [{id,text,done,uid?,userName?}] }
+let members = {};      // { uid: {name} } (modo nuvem)
+let currentUser = null;    // {uid,name,email}
+let currentRoom = null;    // {id,name:codigo}
+let unsubActivities = null, unsubMembers = null;
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function todayStr(){ return fmtDate(new Date()); }
+function dayTasks(dateStr){ return activities[dateStr] || []; }
+function slug(s){ return s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+let calDate = new Date();
+let selectedDate = todayStr();
+let currentFilter = 'todas';
+
+/* ================= LOCAL MODE ================= */
+function localSave(){ localStorage.setItem(DB_KEY, JSON.stringify(activities)); }
+function startLocalMode(){
+  document.getElementById('localBanner').style.display = 'flex';
+  document.getElementById('equipeLocalView').style.display = 'block';
+  document.getElementById('equipeCloudView').style.display = 'none';
+  activities = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+  const savedUser = JSON.parse(localStorage.getItem(LOCAL_USER_KEY) || 'null');
+  if(savedUser){
+    currentUser = savedUser;
+    applyUserToUI();
+    document.getElementById('localOverlay').style.display = 'none';
+    renderAll(); renderCalendar();
+  } else {
+    document.getElementById('localOverlay').style.display = 'flex';
+  }
+}
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('loginName').value.trim();
+  const room = document.getElementById('loginRoom').value.trim();
+  if(!name){ document.getElementById('loginName').focus(); return; }
+  currentUser = { name, room: room || 'Minha sala' };
+  localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(currentUser));
+  document.getElementById('localOverlay').style.display = 'none';
+  applyUserToUI();
+  renderAll(); renderCalendar();
+});
+
+/* ================= CLOUD MODE: AUTH ================= */
+let authMode = 'entrar';
+document.querySelectorAll('.auth-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    authMode = tab.dataset.tab;
+    document.getElementById('fieldNome').style.display = authMode==='criar' ? 'block' : 'none';
+    document.getElementById('authSubmitBtn').textContent = authMode==='criar' ? 'Criar conta' : 'Entrar';
+    document.getElementById('authError').style.display = 'none';
+  });
+});
+function showAuthError(id, msg){
+  const el = document.getElementById(id);
+  el.textContent = msg; el.style.display = 'block';
+}
+document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  const pass = document.getElementById('authPass').value;
+  const name = document.getElementById('authName').value.trim();
+  document.getElementById('authError').style.display = 'none';
+  if(!email || !pass){ showAuthError('authError','Preencha e-mail e senha.'); return; }
+  try{
+    if(authMode==='criar'){
+      if(!name){ showAuthError('authError','Digite seu nome.'); return; }
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      await cred.user.updateProfile({ displayName: name });
+    } else {
+      await auth.signInWithEmailAndPassword(email, pass);
+    }
+  }catch(err){
+    showAuthError('authError', traduzErro(err));
+  }
+});
+function traduzErro(err){
+  const map = {
+    'auth/email-already-in-use':'Este e-mail já tem uma conta. Tente entrar.',
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/weak-password':'Senha muito curta (mínimo 6 caracteres).',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/user-not-found':'Não encontramos essa conta. Crie uma nova.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.'
+  };
+  return map[err.code] || 'Algo deu errado. Tente novamente.';
+}
+
+/* ================= CLOUD MODE: SALA ================= */
+document.getElementById('createRoomBtn').addEventListener('click', async ()=>{
+  const raw = document.getElementById('roomCode').value.trim();
+  document.getElementById('roomError').style.display = 'none';
+  if(!raw){ showAuthError('roomError','Digite um código para a sala.'); return; }
+  const code = slug(raw);
+  try{
+    const ref = db.collection('rooms').doc(code);
+    const snap = await ref.get();
+    if(snap.exists){ showAuthError('roomError','Essa sala já existe — use "Entrar em sala existente".'); return; }
+    await ref.set({ name: raw, code, ownerUid: currentUser.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await joinRoom(code);
+  }catch(err){ showAuthError('roomError', 'Não foi possível criar a sala. Verifique as regras do Firestore.'); }
+});
+document.getElementById('joinRoomBtn').addEventListener('click', async ()=>{
+  const raw = document.getElementById('roomCode').value.trim();
+  document.getElementById('roomError').style.display = 'none';
+  if(!raw){ showAuthError('roomError','Digite o código da sala.'); return; }
+  const code = slug(raw);
+  try{
+    const ref = db.collection('rooms').doc(code);
+    const snap = await ref.get();
+    if(!snap.exists){ showAuthError('roomError','Sala não encontrada. Confira o código com sua equipe.'); return; }
+    await joinRoom(code);
+  }catch(err){ showAuthError('roomError', 'Não foi possível entrar na sala.'); }
+});
+async function joinRoom(code){
+  await db.collection('rooms').doc(code).collection('members').doc(currentUser.uid).set({
+    name: currentUser.name, email: currentUser.email, joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge:true });
+  currentRoom = { id: code };
+  localStorage.setItem(ROOM_CACHE_KEY + currentUser.uid, code);
+  document.getElementById('roomOverlay').style.display = 'none';
+  applyUserToUI();
+  startRoomListeners();
+}
+document.getElementById('roomChip').addEventListener('click', ()=>{
+  if(!CLOUD_ENABLED) return;
+  document.getElementById('roomOverlay').style.display = 'flex';
+});
+document.getElementById('changeRoomBtn').addEventListener('click', ()=>{
+  document.getElementById('roomOverlay').style.display = 'flex';
+});
+document.getElementById('signOutFromRoomBtn').addEventListener('click', ()=> auth.signOut());
+
+/* ================= CLOUD MODE: LISTENERS ================= */
+function stopRoomListeners(){
+  if(unsubActivities) unsubActivities();
+  if(unsubMembers) unsubMembers();
+  activities = {}; members = {};
+}
+function startRoomListeners(){
+  stopRoomListeners();
+  unsubActivities = db.collection('rooms').doc(currentRoom.id).collection('activities')
+    .onSnapshot(snap=>{
+      activities = {};
+      snap.forEach(doc=>{
+        const d = doc.data();
+        if(!activities[d.date]) activities[d.date] = [];
+        activities[d.date].push({ id: doc.id, text: d.text, done: !!d.done, uid: d.uid, userName: d.userName });
+      });
+      renderAll(); renderCalendar();
+    }, err=>console.warn('Erro ao ler atividades:', err));
+  unsubMembers = db.collection('rooms').doc(currentRoom.id).collection('members')
+    .onSnapshot(snap=>{
+      members = {};
+      snap.forEach(doc=>{ members[doc.id] = doc.data(); });
+      renderLeaderboard();
+    }, err=>console.warn('Erro ao ler membros:', err));
+}
+
+/* ================= CLOUD MODE: AUTH STATE ================= */
+if(CLOUD_ENABLED){
+  auth.onAuthStateChanged(async (user)=>{
+    if(user){
+      currentUser = { uid: user.uid, name: user.displayName || user.email.split('@')[0], email: user.email };
+      document.getElementById('authOverlay').style.display = 'none';
+      const cachedRoom = localStorage.getItem(ROOM_CACHE_KEY + user.uid);
+      if(cachedRoom){
+        try{
+          const snap = await db.collection('rooms').doc(cachedRoom).get();
+          if(snap.exists){ await joinRoom(cachedRoom); return; }
+        }catch(e){}
+      }
+      document.getElementById('roomOverlay').style.display = 'flex';
+      applyUserToUI();
+    } else {
+      currentUser = null; currentRoom = null;
+      stopRoomListeners();
+      document.getElementById('roomOverlay').style.display = 'none';
+      document.getElementById('authOverlay').style.display = 'flex';
+      applyUserToUI();
+    }
+  });
+} else {
+  startLocalMode();
+}
+
+/* ================= UI: user / room chip ================= */
+function applyUserToUI(){
+  if(currentUser){
+    document.getElementById('userAvatar').textContent = currentUser.name.slice(0,2).toUpperCase();
+    document.getElementById('userNameLabel').textContent = currentUser.name;
+    document.getElementById('userModeLabel').textContent = CLOUD_ENABLED ? 'conta na nuvem' : 'perfil local';
+  } else {
+    document.getElementById('userAvatar').textContent = '?';
+    document.getElementById('userNameLabel').textContent = 'Visitante';
+  }
+  const roomLabel = CLOUD_ENABLED ? (currentRoom ? currentRoom.id : 'nenhuma') : (currentUser ? currentUser.room : '—');
+  document.getElementById('roomChipName').textContent = roomLabel;
+  document.getElementById('roomDot').classList.toggle('offline', !(CLOUD_ENABLED && currentRoom));
+  document.getElementById('equipeRoomCode').textContent = currentRoom ? currentRoom.id : '—';
+  document.getElementById('equipeCloudView').style.display = (CLOUD_ENABLED && currentRoom) ? 'block' : 'none';
+}
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  if(CLOUD_ENABLED){
+    if(confirm('Sair da sua conta?')) auth.signOut();
+  } else {
+    if(confirm('Trocar de perfil local? (suas atividades continuam salvas)')){
+      currentUser = null;
+      localStorage.removeItem(LOCAL_USER_KEY);
+      document.getElementById('localOverlay').style.display = 'flex';
+      applyUserToUI();
+    }
+  }
+});
+
+/* ================= TASK CRUD (funciona nos dois modos) ================= */
+function addTask(dateStr, text){
+  text = text.trim(); if(!text) return;
+  if(CLOUD_ENABLED && currentRoom){
+    db.collection('rooms').doc(currentRoom.id).collection('activities').add({
+      date: dateStr, text, done:false, uid: currentUser.uid, userName: currentUser.name,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err=>alert('Não foi possível salvar: '+err.message));
+  } else {
+    if(!activities[dateStr]) activities[dateStr] = [];
+    activities[dateStr].push({ id: Date.now()+Math.random().toString(16).slice(2), text, done:false });
+    localSave(); renderAll(); renderCalendar();
+  }
+}
+function toggleTask(dateStr, id){
+  const list = activities[dateStr]; if(!list) return;
+  const t = list.find(x=>x.id===id); if(!t) return;
+  if(CLOUD_ENABLED && currentRoom){
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({ done: !t.done })
+      .catch(err=>alert('Não foi possível atualizar: '+err.message));
+  } else {
+    t.done = !t.done; localSave(); renderAll(); renderCalendar();
+  }
+}
+function deleteTask(dateStr, id){
+  if(CLOUD_ENABLED && currentRoom){
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).delete()
+      .catch(err=>alert('Não foi possível apagar: '+err.message));
+  } else {
+    activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
+    if(activities[dateStr].length===0) delete activities[dateStr];
+    localSave(); renderAll(); renderCalendar();
+  }
+}
+
+/* ================= TASK ROW RENDER ================= */
+function taskRow(dateStr, t, opts={}){
+  const el = document.createElement('div');
+  el.className = 'task' + (t.done ? ' done' : '');
+  const showAvatar = CLOUD_ENABLED && currentRoom && t.userName;
+  el.innerHTML = `
+    <button class="check">${t.done ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
+    ${showAvatar ? `<div class="avatar sm" title="${t.userName}">${t.userName.slice(0,2).toUpperCase()}</div>` : ''}
+    <div class="task-text"></div>
+    ${opts.showDate ? `<div class="task-date">${dateLabelShort(dateStr)}</div>` : ''}
+    <button class="task-del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  `;
+  el.querySelector('.task-text').textContent = t.text;
+  el.querySelector('.check').addEventListener('click', ()=>toggleTask(dateStr, t.id));
+  el.querySelector('.task-del').addEventListener('click', ()=>deleteTask(dateStr, t.id));
+  return el;
+}
+function dateLabelShort(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'});
+}
+function emptyMsg(msg){
+  const el = document.createElement('div'); el.className = 'empty'; el.textContent = msg; return el;
+}
+
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  const t = todayStr();
+  const todayList = dayTasks(t);
+  const todayDone = todayList.filter(x=>x.done).length;
+  document.getElementById('statToday').textContent = todayDone;
+  document.getElementById('statPending').textContent = todayList.length - todayDone;
+
+  let weekDone = 0;
+  const base = new Date();
+  for(let i=0;i<7;i++){ const d = new Date(base); d.setDate(base.getDate()-i); weekDone += dayTasks(fmtDate(d)).filter(x=>x.done).length; }
+  document.getElementById('statWeek').textContent = weekDone;
+
+  let streak = 0;
+  for(let i=0;i<60;i++){
+    const d = new Date(base); d.setDate(base.getDate()-i);
+    const list = dayTasks(fmtDate(d));
+    if(list.length===0){ if(i===0) continue; else break; }
+    if(list.every(x=>x.done)) streak++; else break;
+  }
+  document.getElementById('statStreak').textContent = streak;
+
+  const todayEl = document.getElementById('todayList'); todayEl.innerHTML = '';
+  if(todayList.length===0) todayEl.appendChild(emptyMsg('Nenhuma atividade para hoje. Adicione uma acima ✦'));
+  else todayList.slice().sort((a,b)=>a.done-b.done).forEach(tk=>todayEl.appendChild(taskRow(t, tk)));
+
+  const upEl = document.getElementById('upcomingList'); upEl.innerHTML = ''; let any=false;
+  for(let i=1;i<=6;i++){
+    const d = new Date(base); d.setDate(base.getDate()+i); const ds = fmtDate(d);
+    dayTasks(ds).filter(x=>!x.done).forEach(tk=>{ upEl.appendChild(taskRow(ds, tk, {showDate:true})); any=true; });
+  }
+  if(!any) upEl.appendChild(emptyMsg('Nada planejado para os próximos dias.'));
+}
+document.getElementById('quickAddBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('quickInput'); const dateInput = document.getElementById('quickDate');
+  addTask(dateInput.value || todayStr(), input.value); input.value=''; dateInput.value='';
+});
+document.getElementById('quickInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('quickAddBtn').click(); });
+
+/* ================= CALENDAR ================= */
+const MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function renderCalendar(){
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  document.getElementById('calMonthLabel').textContent = `${MONTHS[m]} de ${y}`;
+  const grid = document.getElementById('calGrid'); grid.innerHTML = '';
+  const firstDow = new Date(y,m,1).getDay(); const daysInMonth = new Date(y,m+1,0).getDate();
+  const tstr = todayStr();
+  for(let i=0;i<firstDow;i++){ const f=document.createElement('div'); f.className='day-cell empty-cell'; grid.appendChild(f); }
+  for(let day=1; day<=daysInMonth; day++){
+    const ds = `${y}-${pad(m+1)}-${pad(day)}`; const list = dayTasks(ds);
+    const cell = document.createElement('div'); cell.className = 'day-cell';
+    if(ds===tstr) cell.classList.add('today');
+    if(ds===selectedDate) cell.classList.add('selected');
+    let lampState = 'off';
+    if(list.length>0){ const doneCount = list.filter(x=>x.done).length; lampState = doneCount===list.length ? 'lit' : (doneCount>0 ? 'partial' : 'off'); }
+    const lampWrap = document.createElement('div');
+    lampWrap.className = 'day-lamp' + (lampState==='lit' ? ' lit' : lampState==='partial' ? ' partial' : '');
+    lampWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="none">${miniLampSVG(lampState)}</svg>`;
+    const num = document.createElement('div'); num.className = 'day-num'; num.textContent = day;
+    cell.appendChild(num); cell.appendChild(lampWrap);
+    cell.addEventListener('click', ()=>{ selectedDate = ds; renderCalendar(); renderSidePanel(); });
+    grid.appendChild(cell);
+  }
+}
+document.getElementById('calPrev').addEventListener('click', ()=>{ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); });
+document.getElementById('calNext').addEventListener('click', ()=>{ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); });
+
+function renderSidePanel(){
+  const d = new Date(selectedDate+'T00:00:00');
+  document.getElementById('sideDateLabel').textContent = d.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  document.getElementById('sideDateSub').textContent = selectedDate===todayStr() ? 'Hoje' : '';
+  const list = dayTasks(selectedDate); const el = document.getElementById('sideList'); el.innerHTML = '';
+  if(list.length===0) el.appendChild(emptyMsg('Sem atividades planejadas para este dia.'));
+  else list.slice().sort((a,b)=>a.done-b.done).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
+}
+document.getElementById('sideAddBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('sideInput'); addTask(selectedDate, input.value); input.value='';
+});
+document.getElementById('sideInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('sideAddBtn').click(); });
+
+/* ================= ATIVIDADES (todas) ================= */
+document.querySelectorAll('.pill').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    document.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active'); currentFilter = p.dataset.filter; renderAllList();
+  });
+});
+function renderAllList(){
+  const el = document.getElementById('allList'); el.innerHTML = '';
+  const dates = Object.keys(activities).sort(); let any=false;
+  dates.forEach(ds=>{
+    activities[ds].forEach(tk=>{
+      if(currentFilter==='pendentes' && tk.done) return;
+      if(currentFilter==='concluidas' && !tk.done) return;
+      el.appendChild(taskRow(ds, tk, {showDate:true})); any=true;
+    });
+  });
+  if(!any) el.appendChild(emptyMsg('Nada por aqui ainda.'));
+}
+
+/* ================= EQUIPE / LEADERBOARD ================= */
+function renderLeaderboard(){
+  if(!(CLOUD_ENABLED && currentRoom)) return;
+  const el = document.getElementById('leaderboard'); el.innerHTML = '';
+  const uids = Object.keys(members);
+  if(uids.length===0){ el.appendChild(emptyMsg('Ainda não há membros nesta sala.')); return; }
+  const stats = uids.map(uid=>{
+    let done=0, pending=0;
+    Object.values(activities).forEach(list=>{
+      list.forEach(t=>{ if(t.uid===uid){ t.done ? done++ : pending++; } });
+    });
+    return { uid, name: members[uid].name || 'Membro', done, pending, total: done+pending };
+  }).sort((a,b)=> b.done - a.done);
+  const maxDone = Math.max(1, ...stats.map(s=>s.done));
+  stats.forEach((s,i)=>{
+    const row = document.createElement('div'); row.className = 'lb-row';
+    row.innerHTML = `
+      <div class="lb-rank">${i+1}</div>
+      <div class="avatar sm">${s.name.slice(0,2).toUpperCase()}</div>
+      <div class="lb-name">${s.name}${s.uid===currentUser.uid ? ' (você)' : ''}</div>
+      <div class="lb-bar-wrap"><div class="lb-bar" style="width:${(s.done/maxDone*100).toFixed(0)}%"></div></div>
+      <div class="lb-stat">${s.done} feitas · ${s.pending} pend.</div>
+    `;
+    el.appendChild(row);
+  });
+}
+
+/* ================= NAV ================= */
+const titles = {
+  dashboard: ['Painel', 'Sua visão geral de hoje'],
+  calendario: ['Calendário', 'Clique num dia para ver e marcar as atividades'],
+  atividades: ['Atividades', 'Todas as suas tarefas, filtradas'],
+  equipe: ['Equipe', 'Compare o progresso com sua sala']
+};
+document.querySelectorAll('.navitem').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navitem').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    const v = btn.dataset.view;
+    document.querySelectorAll('.view').forEach(sec=>sec.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    document.getElementById('viewTitle').textContent = titles[v][0];
+    document.getElementById('viewSub').textContent = titles[v][1];
+    closeSidebar();
+    if(v==='calendario') renderCalendar();
+    if(v==='atividades') renderAllList();
+    if(v==='equipe') renderLeaderboard();
+  });
+});
+const sidebar = document.getElementById('sidebar'); const backdrop = document.getElementById('sidebarBackdrop');
+function openSidebar(){ sidebar.classList.add('open'); backdrop.classList.add('show'); }
+function closeSidebar(){ sidebar.classList.remove('open'); backdrop.classList.remove('show'); }
+document.getElementById('mobileMenuBtn').addEventListener('click', openSidebar);
+backdrop.addEventListener('click', closeSidebar);
+
+/* ================= RENDER ALL ================= */
+function renderAll(){
+  renderDashboard();
+  if(document.getElementById('view-calendario').classList.contains('active')) renderCalendar();
+  renderSidePanel();
+  if(document.getElementById('view-atividades').classList.contains('active')) renderAllList();
+  if(document.getElementById('view-equipe').classList.contains('active')) renderLeaderboard();
+}
+renderSidePanel();
+</script>
+</body>
+</html>
