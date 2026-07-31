@@ -23,24 +23,25 @@ navegador. Baixe esta versão do `index.html` para resolver.
 
 ## ⚠️ Regras e domínio certos, mas o site ainda cai em "Modo local ativo"
 
-Regras do Firestore e domínio autorizado são configurações do lado do
-**Firebase** (servidor); o "Modo local" é decidido pelo **navegador**,
-olhando só para o conteúdo de `firebase-config.js`. São coisas
-independentes — corrigir uma não corrige a outra. Confira nesta ordem:
+O app agora mostra o **motivo exato** direto no banner amarelo (não
+precisa mais abrir o Console do navegador) — recarregue a página e
+leia o texto ao lado de "Modo local ativo.". As causas possíveis são:
 
-1. Abra `https://SEU-DOMINIO/firebase-config.js` direto no navegador
-   (troque pela URL real do seu site) e confira se os valores ali são
-   os reais do seu projeto — não `SUA_API_KEY` nem outro placeholder.
-   Se aparecer 404, o arquivo não foi publicado junto com o `index.html`.
-2. Abra o Console do navegador (F12) e procure por uma linha que
-   começa com `Firebase não inicializado:` — se aparecer, o texto do
-   erro ao lado mostra exatamente por que a inicialização falhou.
-3. Extensões de navegador (bloqueadores de anúncio, antirrastreamento)
-   às vezes bloqueiam domínios do Firebase (`gstatic.com`,
-   `googleapis.com`, `firebaseapp.com`). Se a aba "Rede"/"Network" do
-   DevTools mostrar requisições para esses domínios falhando (ex.
-   `ERR_BLOCKED_BY_CLIENT`), teste numa janela anônima com as
-   extensões desativadas.
+- **Os scripts do Firebase não carregaram** (hospedados em
+  `gstatic.com`) — geralmente é bloqueador de anúncios/extensão de
+  privacidade barrando esse domínio, ou falta de conexão no momento
+  do carregamento. Teste numa aba anônima com as extensões desativadas.
+- **`firebase-config.js` não foi encontrado** — não foi publicado na
+  mesma pasta do `index.html`.
+- **`firebase-config.js` ainda com valores de exemplo.**
+- **Erro ao inicializar** — o banner mostra a mensagem de erro exata
+  do Firebase, que ajuda a identificar o problema (ex: projeto errado,
+  domínio não autorizado etc).
+
+Regras do Firestore e domínio autorizado são configurações do lado do
+**Firebase** (servidor); a inicialização acima é decidida pelo
+**navegador**, olhando só para os arquivos publicados. São coisas
+independentes — corrigir uma não corrige a outra.
 
 ## ⚠️ Erros de "Missing or insufficient permissions"
 

@@ -549,7 +549,7 @@ body::before{
     </div>
 
     <div class="local-banner" id="localBanner" style="display:none;">
-      ⚠️ <span><b>Modo local ativo.</b> Configure <code>firebase-config.js</code> e recarregue a página para ativar contas, Google, e salas compartilhadas com sua equipe.</span>
+      ⚠️ <span><b>Modo local ativo.</b> <span id="localBannerReason">Configure <code>firebase-config.js</code> e recarregue a página para ativar contas, Google, e salas compartilhadas com sua equipe.</span></span>
     </div>
 
     <!-- DASHBOARD -->
@@ -681,15 +681,25 @@ applyTheme(localStorage.getItem(THEME_KEY) || 'teal');
 
 /* ================= FIREBASE INIT ================= */
 let CLOUD_ENABLED = false;
+let CLOUD_DISABLED_REASON = '';
 let auth = null, db = null;
-try{
-  if(typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== 'SUA_API_KEY'){
+if(typeof firebase === 'undefined'){
+  CLOUD_DISABLED_REASON = 'Os scripts do Firebase (firebase-app-compat.js etc, hospedados em gstatic.com) não carregaram. Verifique sua conexão ou se algum bloqueador de anúncios/extensão de privacidade está bloqueando o domínio gstatic.com — teste numa aba anônima sem extensões.';
+} else if(typeof firebaseConfig === 'undefined'){
+  CLOUD_DISABLED_REASON = 'O arquivo firebase-config.js não foi encontrado (verifique se ele foi publicado na mesma pasta do index.html).';
+} else if(!firebaseConfig.apiKey || firebaseConfig.apiKey === 'SUA_API_KEY'){
+  CLOUD_DISABLED_REASON = 'O firebase-config.js ainda está com os valores de exemplo.';
+} else {
+  try{
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
     CLOUD_ENABLED = true;
+  }catch(e){
+    CLOUD_DISABLED_REASON = 'Erro ao inicializar: ' + (e && e.message ? e.message : e);
+    console.warn('Firebase não inicializado:', e);
   }
-}catch(e){ console.warn('Firebase não inicializado:', e); CLOUD_ENABLED = false; }
+}
 
 /* ================= SHARED STATE ================= */
 const DB_KEY = 'lamparina_activities_v1';
@@ -735,6 +745,7 @@ function confirmModal(message, onYes, opts={}){
 function localSave(){ localStorage.setItem(DB_KEY, JSON.stringify(activities)); }
 function startLocalMode(){
   document.getElementById('localBanner').style.display = 'flex';
+  if(CLOUD_DISABLED_REASON) document.getElementById('localBannerReason').textContent = CLOUD_DISABLED_REASON;
   document.getElementById('equipeLocalView').style.display = 'block';
   document.getElementById('equipeCloudView').style.display = 'none';
   activities = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
