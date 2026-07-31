@@ -11,9 +11,21 @@ por quem participa de cada uma).
 - `firebase-config.js` — onde você cola as chaves do seu projeto Firebase.
 - `README.md` — este arquivo.
 
-## ⚠️ Se o site ficar preso em "Modo local ativo"
+## ⚠️ Erros de "Missing or insufficient permissions"
 
-Isso é exatamente o que a captura de tela mostrou. As causas mais comuns:
+Se aparecer essa mensagem ao criar atividade, excluir sala ou remover
+alguém, o motivo quase sempre é o mesmo: **as regras do Firestore
+publicadas no console não são (ou não são mais) as regras deste app.**
+Isso acontece com frequência quando as regras de uma etapa anterior
+ficaram publicadas e as novas (abaixo) nunca chegaram a ser coladas e
+publicadas de verdade.
+
+**Confira agora:** Firebase Console → Firestore Database → aba
+**Regras** → apague todo o conteúdo → cole exatamente o bloco abaixo →
+clique no botão **Publicar** (não basta salvar o rascunho, o botão
+"Publicar" precisa ser clicado). Depois disso, recarregue o site.
+
+## ⚠️ Se o site ficar preso em "Modo local ativo"
 
 1. **O `firebase-config.js` não foi publicado junto com o `index.html`.**
    No GitHub Pages, os dois arquivos precisam estar na mesma pasta do
@@ -42,7 +54,8 @@ que ajuda a identificar o problema.
    que mais gera dor de cabeça e costuma ser esquecido.**
 4. **Firestore Database** → "Criar banco de dados" → modo produção →
    escolha a região mais próxima de vocês.
-5. Em **Regras** do Firestore, cole o conteúdo da seção abaixo e publique.
+5. Em **Regras** do Firestore, cole o conteúdo da seção abaixo e
+   **publique** (veja o aviso no topo deste README).
 6. **Configurações do projeto** (engrenagem) → "Geral" → "Seus aplicativos"
    → ícone `</>` (Web) → dê um nome → copie o objeto de configuração
    gerado e cole em `firebase-config.js`, substituindo os valores de
@@ -52,6 +65,9 @@ que ajuda a identificar o problema.
 
 ## Regras do Firestore
 
+Estas regras foram simplificadas nesta etapa (menos dependências entre
+coleções) exatamente para reduzir a chance de erros de permissão:
+
 ```
 rules_version = '2';
 service cloud.firestore {
@@ -60,14 +76,14 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
+      allow update: if request.auth != null
+                     && request.auth.uid == resource.data.ownerUid;
       allow delete: if request.auth != null
                      && request.auth.uid == resource.data.ownerUid;
 
       match /members/{uid} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null &&
-          (request.auth.uid == uid ||
-           request.auth.uid == get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid);
+        allow write: if request.auth != null;
       }
 
       match /activities/{activityId} {
@@ -83,10 +99,16 @@ service cloud.firestore {
 
 O que isso significa, em resumo:
 - Só quem está logado pode ler ou escrever.
-- Uma sala só pode ser excluída por quem a criou (`ownerUid`).
-- Cada pessoa escreve seu próprio registro de membro; o dono da sala
-  também pode escrever/remover o registro de qualquer membro (usado
-  para "remover da sala").
+- Uma sala só pode ser **editada ou excluída** por quem a criou
+  (`ownerUid`) — é assim que "Editar sala", "Remover membro" (feito
+  pelo dono) e "Excluir sala" funcionam.
+- Qualquer pessoa autenticada pode escrever em `members` — isso é o
+  que permite tanto sair da sala sozinho quanto o dono remover
+  outra pessoa, sem depender de uma checagem cruzada mais complexa
+  (que era a causa mais provável do erro de permissão ao expulsar
+  alguém). Do lado do app, o botão "Remover" só aparece para quem é
+  dono — a regra em si confia no grupo pequeno, como já acontece com
+  as atividades.
 - Toda atividade precisa nascer com o `creatorUid` de quem está logado.
 - Qualquer membro autenticado pode atualizar (marcar sua parte) ou
   apagar qualquer atividade da sala — de propósito, para permitir
@@ -113,6 +135,9 @@ trate como segurança forte.
 - **CRUD completo**: criar (botão "Adicionar" ou "Detalhes"), editar
   (clique na atividade), marcar/desmarcar sua própria confirmação, e
   excluir (ícone de lixeira) — toda exclusão pede confirmação antes.
+- Os nomes e cores mostrados nos participantes são sempre os **atuais**
+  — se alguém mudar o nome no perfil, atividades antigas também
+  atualizam, em vez de ficar com o nome antigo congelado.
 - O Painel mostra só **as suas** atividades (as que você participa);
   Calendário e Atividades mostram as da sala inteira.
 
@@ -122,15 +147,35 @@ trate como segurança forte.
   logada entrar direto, sem senha.
 - **Privada**: só entra quem tiver o código exato e a senha definida
   na criação.
+- Ao clicar em "Sala:" na barra lateral (ou "Trocar de sala" na aba
+  Equipe), agora aparece primeiro um resumo da **sala em que você já
+  está** — nome, descrição, código e visibilidade — em vez de ir
+  direto para a tela de criar/entrar em outra. Só depois de confirmar
+  "Trocar de sala" (que sai da sala atual) é que a tela de escolher
+  uma nova sala aparece. Isso evita o estado confuso de ficar
+  "meio dentro, meio fora" de duas salas ao mesmo tempo.
 - Quem cria a sala vira o "dono(a)" e, na aba Equipe → "Gerenciar
-  sala", pode remover qualquer membro ou excluir a sala inteira
-  (com confirmação). Quem não é dono só pode sair da sala.
+  sala", pode **remover qualquer membro**, **editar** nome/descrição/
+  visibilidade/senha da sala (botão "Editar sala"), ou excluir a sala
+  inteira (com confirmação). Quem não é dono só pode sair da sala.
 - Se você for removido de uma sala por outra pessoa, o app detecta
   isso automaticamente e te leva de volta para a tela de escolher
   sala, com um aviso.
 
+## Perfil
+
+- Clique no seu nome/avatar na barra lateral (não no ícone de sair) para
+  abrir "Seu perfil": dá para mudar seu **nome de exibição** e escolher
+  uma **cor de avatar** entre seis opções.
+- **Foto de perfil de verdade não está incluída ainda** — isso exige
+  configurar o Firebase Storage (upload de arquivo), que é um passo a
+  mais no Firebase e pode ter custo dependendo do uso. Se quiser, essa
+  é uma boa próxima etapa; por enquanto a cor do avatar já ajuda a
+  diferenciar cada pessoa visualmente nas listas e no ranking.
+
 ## Próxima etapa sugerida
 
+- Upload de foto de perfil real (requer Firebase Storage).
 - Notificação visual de atividades atrasadas (data passou e ainda não
   foi concluída por todo mundo).
 - Busca/filtro por prioridade na aba Atividades.

@@ -273,6 +273,18 @@ body::before{
 .assignee-row{display:flex; align-items:center; gap:9px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-size:12.5px; cursor:pointer;}
 .assignee-row input[type=checkbox]{width:15px; height:15px; accent-color:var(--accent);}
 
+/* ---- Sala atual / info / avatar cor ---- */
+.user-row{cursor:pointer;}
+.room-current-box{text-align:left;}
+.room-current-box .rc-name{font-size:16px; font-weight:700; margin-bottom:2px;}
+.room-current-box .rc-desc{font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;}
+.room-current-box .rc-meta{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+.room-current-box .rc-actions{display:flex; gap:8px;}
+.avatar-color-grid{display:flex; gap:8px; flex-wrap:wrap;}
+.avatar-color-dot{width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer;}
+.avatar-color-dot.active{border-color:var(--text);}
+.perm-hint{font-size:11px; color:var(--text-faint); margin-top:10px; line-height:1.5;}
+
 /* Mobile */
 @media (max-width: 880px){
   .app{grid-template-columns:1fr;}
@@ -337,40 +349,104 @@ body::before{
   <div class="login-card" style="max-width:440px;">
     <button class="modal-close" id="roomCloseBtn" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="roomLampSvg"></svg>
-    <h2>Sua sala de estudos</h2>
-    <p>Crie uma sala, entre com um código, ou explore salas públicas.</p>
-    <div class="auth-tabs" id="roomTabs">
-      <button class="auth-tab active" data-rtab="criar">Criar</button>
-      <button class="auth-tab" data-rtab="entrar">Código</button>
-      <button class="auth-tab" data-rtab="publicas">Públicas</button>
-    </div>
-    <div class="auth-error" id="roomError"></div>
 
-    <div id="roomTabCriar">
-      <div class="field"><label>Nome da sala</label><input type="text" id="roomNameInput" placeholder="ex: Turma de Cálculo II"></div>
-      <div class="field"><label>Código único</label><input type="text" id="roomCode" placeholder="ex: calc2-turma-a"></div>
-      <div class="field">
-        <label>Visibilidade</label>
-        <div class="vis-toggle">
-          <button type="button" class="vis-btn active" data-vis="publica">🌐 Pública</button>
-          <button type="button" class="vis-btn" data-vis="privada">🔒 Privada</button>
-        </div>
+    <!-- Sala atual (mostrado quando já se está numa sala) -->
+    <div id="roomCurrentBox" class="room-current-box" style="display:none;">
+      <h2 style="text-align:left;">Sua sala</h2>
+      <div class="rc-name" id="rcName">—</div>
+      <div class="rc-desc" id="rcDesc"></div>
+      <div class="rc-meta">
+        <span class="code-pill" id="rcCode">—</span>
+        <span class="vis-pill" id="rcVis"></span>
+        <span class="vis-pill" id="rcCreated"></span>
       </div>
-      <div class="field" id="roomPassField" style="display:none;"><label>Senha da sala</label><input type="password" id="roomPassInput" placeholder="crie uma senha simples"></div>
-      <button class="btn" id="createRoomBtn">Criar sala</button>
+      <div class="rc-actions">
+        <button class="btn btn-ghost" id="rcCloseBtn" style="flex:1; justify-content:center;">Fechar</button>
+        <button class="btn btn-danger" id="rcSwitchBtn" style="flex:1; justify-content:center;">Trocar de sala</button>
+      </div>
     </div>
 
-    <div id="roomTabEntrar" style="display:none;">
-      <div class="field"><label>Código da sala</label><input type="text" id="joinCodeInput" placeholder="ex: calc2-turma-a"></div>
-      <div class="field"><label>Senha (se a sala for privada)</label><input type="password" id="joinPassInput" placeholder="deixe em branco se for pública"></div>
-      <button class="btn" id="joinRoomBtn">Entrar</button>
-    </div>
+    <!-- Escolher/criar sala -->
+    <div id="roomPickerBox">
+      <h2>Sua sala de estudos</h2>
+      <p>Crie uma sala, entre com um código, ou explore salas públicas.</p>
+      <div class="auth-tabs" id="roomTabs">
+        <button class="auth-tab active" data-rtab="criar">Criar</button>
+        <button class="auth-tab" data-rtab="entrar">Código</button>
+        <button class="auth-tab" data-rtab="publicas">Públicas</button>
+      </div>
+      <div class="auth-error" id="roomError"></div>
 
-    <div id="roomTabPublicas" style="display:none;">
-      <div id="publicRoomsList" class="task-list" style="max-height:260px; overflow:auto;"></div>
-    </div>
+      <div id="roomTabCriar">
+        <div class="field"><label>Nome da sala</label><input type="text" id="roomNameInput" placeholder="ex: Turma de Cálculo II"></div>
+        <div class="field"><label>Descrição (opcional)</label><textarea id="roomDescInput" rows="2" placeholder="Sobre o que é essa sala, matéria, turma..."></textarea></div>
+        <div class="field"><label>Código único</label><input type="text" id="roomCode" placeholder="ex: calc2-turma-a"></div>
+        <div class="field">
+          <label>Visibilidade</label>
+          <div class="vis-toggle">
+            <button type="button" class="vis-btn active" data-vis="publica">🌐 Pública</button>
+            <button type="button" class="vis-btn" data-vis="privada">🔒 Privada</button>
+          </div>
+        </div>
+        <div class="field" id="roomPassField" style="display:none;"><label>Senha da sala</label><input type="password" id="roomPassInput" placeholder="crie uma senha simples"></div>
+        <button class="btn" id="createRoomBtn">Criar sala</button>
+      </div>
 
-    <button class="link-btn" id="signOutFromRoomBtn">Sair da conta</button>
+      <div id="roomTabEntrar" style="display:none;">
+        <div class="field"><label>Código da sala</label><input type="text" id="joinCodeInput" placeholder="ex: calc2-turma-a"></div>
+        <div class="field"><label>Senha (se a sala for privada)</label><input type="password" id="joinPassInput" placeholder="deixe em branco se for pública"></div>
+        <button class="btn" id="joinRoomBtn">Entrar</button>
+      </div>
+
+      <div id="roomTabPublicas" style="display:none;">
+        <div id="publicRoomsList" class="task-list" style="max-height:260px; overflow:auto;"></div>
+      </div>
+
+      <button class="link-btn" id="signOutFromRoomBtn">Sair da conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDITAR SALA (dono) -->
+<div class="overlay" id="roomEditOverlay" style="display:none; z-index:55;">
+  <div class="login-card" style="max-width:420px; text-align:left;">
+    <button class="modal-close" id="roomEditCloseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 style="text-align:left; margin-bottom:16px;">Editar sala</h2>
+    <div class="auth-error" id="roomEditError"></div>
+    <div class="field"><label>Nome da sala</label><input type="text" id="roomEditName"></div>
+    <div class="field"><label>Descrição</label><textarea id="roomEditDesc" rows="2"></textarea></div>
+    <div class="field">
+      <label>Visibilidade</label>
+      <div class="vis-toggle" id="roomEditVisToggle">
+        <button type="button" class="vis-btn" data-vis="publica">🌐 Pública</button>
+        <button type="button" class="vis-btn" data-vis="privada">🔒 Privada</button>
+      </div>
+    </div>
+    <div class="field" id="roomEditPassField"><label>Senha da sala</label><input type="password" id="roomEditPass" placeholder="deixe em branco para manter a atual"></div>
+    <div style="display:flex; gap:8px; margin-top:6px;">
+      <button class="btn btn-ghost" id="roomEditCancelBtn" style="flex:1; justify-content:center;">Cancelar</button>
+      <button class="btn" id="roomEditSaveBtn" style="flex:1; justify-content:center;">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- PERFIL -->
+<div class="overlay" id="profileOverlay" style="display:none; z-index:55;">
+  <div class="login-card" style="max-width:400px; text-align:left;">
+    <button class="modal-close" id="profileCloseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 style="text-align:left; margin-bottom:4px;">Seu perfil</h2>
+    <p style="text-align:left;">Ajuste como seu nome e avatar aparecem para a equipe.</p>
+    <div class="auth-error" id="profileError"></div>
+    <div class="field"><label>Nome</label><input type="text" id="profileNameInput" maxlength="24"></div>
+    <div class="field">
+      <label>Cor do avatar</label>
+      <div class="avatar-color-grid" id="avatarColorGrid"></div>
+    </div>
+    <div class="perm-hint">Foto de perfil real ainda não está disponível — isso exigiria configurar o Firebase Storage. Por enquanto você pode escolher uma cor para o seu avatar.</div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn btn-ghost" id="profileCancelBtn" style="flex:1; justify-content:center;">Cancelar</button>
+      <button class="btn" id="profileSaveBtn" style="flex:1; justify-content:center;">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -446,7 +522,7 @@ body::before{
     </div>
     <div class="sidebar-bottom">
       <div class="room-chip" id="roomChip" title="Trocar de sala"><span class="dot" id="roomDot"></span><span>Sala: <b id="roomChipName">—</b></span></div>
-      <div class="user-row">
+      <div class="user-row" id="userRow" title="Editar perfil">
         <div class="avatar" id="userAvatar">?</div>
         <div class="user-meta"><span id="userNameLabel">Visitante</span><small id="userModeLabel">perfil local</small></div>
         <button class="icon-btn" id="logoutBtn" title="Sair">
@@ -546,10 +622,14 @@ body::before{
       <div id="equipeCloudView" style="display:none;">
         <div class="room-banner">
           <div>
-            <div style="font-size:13px; color:var(--text-dim); margin-bottom:6px;">Sala atual</div>
-            <div class="code-box"><span class="code-pill" id="equipeRoomCode">—</span><span class="vis-pill" id="equipeRoomVis"></span></div>
+            <div style="font-size:15px; font-weight:700; margin-bottom:4px;" id="equipeRoomName">—</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px;" id="equipeRoomDesc"></div>
+            <div class="code-box"><span class="code-pill" id="equipeRoomCode">—</span><span class="vis-pill" id="equipeRoomVis"></span><span class="vis-pill" id="equipeRoomCreated"></span></div>
           </div>
-          <button class="btn btn-ghost" id="changeRoomBtn">Trocar de sala</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="editRoomBtn" style="display:none;">Editar sala</button>
+            <button class="btn btn-ghost" id="changeRoomBtn">Trocar de sala</button>
+          </div>
         </div>
         <div class="section-title"><h2>Ranking da equipe</h2></div>
         <div id="leaderboard"></div>
@@ -733,14 +813,45 @@ function traduzErro(err){
 }
 
 /* ================= SALA: abrir/fechar ================= */
+function fmtCreatedAt(ts){
+  if(!ts || !ts.toDate) return 'criada agora há pouco';
+  return 'criada em ' + ts.toDate().toLocaleDateString('pt-BR');
+}
 function openRoomOverlay(){
+  const hasRoom = CLOUD_ENABLED && currentRoom && currentRoomData;
   document.getElementById('roomCloseBtn').style.display = currentRoom ? 'flex' : 'none';
   document.getElementById('roomError').style.display = 'none';
+  if(hasRoom){
+    document.getElementById('roomCurrentBox').style.display = 'block';
+    document.getElementById('roomPickerBox').style.display = 'none';
+    document.getElementById('rcName').textContent = currentRoomData.name || currentRoom.id;
+    document.getElementById('rcDesc').textContent = currentRoomData.description || '';
+    document.getElementById('rcCode').textContent = currentRoom.id;
+    document.getElementById('rcVis').textContent = currentRoomData.visibility==='privada' ? '🔒 Privada' : '🌐 Pública';
+    document.getElementById('rcCreated').textContent = fmtCreatedAt(currentRoomData.createdAt);
+  } else {
+    document.getElementById('roomCurrentBox').style.display = 'none';
+    document.getElementById('roomPickerBox').style.display = 'block';
+  }
   document.getElementById('roomOverlay').style.display = 'flex';
 }
 document.getElementById('roomCloseBtn').addEventListener('click', ()=> document.getElementById('roomOverlay').style.display='none');
+document.getElementById('rcCloseBtn').addEventListener('click', ()=> document.getElementById('roomOverlay').style.display='none');
 document.getElementById('roomChip').addEventListener('click', ()=>{ if(CLOUD_ENABLED) openRoomOverlay(); });
 document.getElementById('changeRoomBtn').addEventListener('click', openRoomOverlay);
+document.getElementById('rcSwitchBtn').addEventListener('click', ()=>{
+  confirmModal('Trocar de sala? Você vai sair da sala atual antes de escolher outra.', async ()=>{
+    await leaveCurrentRoomAction();
+    document.getElementById('roomCurrentBox').style.display = 'none';
+    document.getElementById('roomPickerBox').style.display = 'block';
+  }, {yesLabel:'Trocar'});
+});
+async function leaveCurrentRoomAction(){
+  if(!currentRoom) return;
+  try{ await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).delete(); }
+  catch(e){ /* ignora se já não existir */ }
+  leaveRoomCleanup();
+}
 document.getElementById('signOutFromRoomBtn').addEventListener('click', ()=> auth.signOut());
 
 document.querySelectorAll('#roomTabs .auth-tab').forEach(tab=>{
@@ -780,8 +891,15 @@ async function loadPublicRooms(){
     });
   }catch(err){ list.innerHTML=''; list.appendChild(emptyMsg('Não foi possível carregar as salas públicas.')); }
 }
+function friendlyFirestoreError(err){
+  if(err && err.code === 'permission-denied'){
+    return 'Permissão negada pelo Firestore. As regras de segurança do banco provavelmente não foram publicadas (ou estão desatualizadas) — confira o README.md, cole as regras atuais em Firestore Database > Regras e clique em "Publicar".';
+  }
+  return err && err.message ? err.message : 'Algo deu errado.';
+}
 document.getElementById('createRoomBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('roomNameInput').value.trim();
+  const desc = document.getElementById('roomDescInput').value.trim();
   const raw = document.getElementById('roomCode').value.trim();
   const pass = document.getElementById('roomPassInput').value;
   document.getElementById('roomError').style.display = 'none';
@@ -794,11 +912,11 @@ document.getElementById('createRoomBtn').addEventListener('click', async ()=>{
     const snap = await ref.get();
     if(snap.exists){ showErr('roomError','Já existe uma sala com esse código.'); return; }
     await ref.set({
-      name, code, visibility: selectedVisibility, password: selectedVisibility==='privada' ? pass : null,
+      name, code, description: desc, visibility: selectedVisibility, password: selectedVisibility==='privada' ? pass : null,
       ownerUid: currentUser.uid, ownerName: currentUser.name, createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await joinRoom(code);
-  }catch(err){ showErr('roomError','Não foi possível criar a sala. Verifique as regras do Firestore.'); }
+  }catch(err){ showErr('roomError', friendlyFirestoreError(err)); }
 });
 document.getElementById('joinRoomBtn').addEventListener('click', async ()=>{
   const raw = document.getElementById('joinCodeInput').value.trim();
@@ -813,11 +931,12 @@ document.getElementById('joinRoomBtn').addEventListener('click', async ()=>{
     const d = snap.data();
     if(d.visibility==='privada' && d.password !== pass){ showErr('roomError','Senha incorreta.'); return; }
     await joinRoom(code);
-  }catch(err){ showErr('roomError','Não foi possível entrar na sala.'); }
+  }catch(err){ showErr('roomError', friendlyFirestoreError(err)); }
 });
 async function joinRoom(code){
   await db.collection('rooms').doc(code).collection('members').doc(currentUser.uid).set({
-    name: currentUser.name, email: currentUser.email || null, joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+    name: currentUser.name, email: currentUser.email || null, avatarColor: currentUser.avatarColor || null,
+    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge:true });
   currentRoom = { id: code };
   localStorage.setItem(ROOM_CACHE_KEY + currentUser.uid, code);
@@ -869,6 +988,13 @@ function startRoomListeners(){
       leaveRoomCleanup(); openRoomOverlay();
       return;
     }
+    const mine = members[currentUser.uid];
+    if(mine){
+      let changed = false;
+      if(mine.name && mine.name !== currentUser.name){ currentUser.name = mine.name; changed = true; }
+      if(mine.avatarColor !== undefined && mine.avatarColor !== currentUser.avatarColor){ currentUser.avatarColor = mine.avatarColor; changed = true; }
+      if(changed) applyUserToUI();
+    }
     renderLeaderboard(); renderManageRoom();
   }, err=>console.warn('Erro ao ler membros:', err));
 }
@@ -901,23 +1027,37 @@ if(CLOUD_ENABLED){
 }
 
 /* ================= UI: usuário / sala ================= */
+const AVATAR_COLORS = { teal:'#2fd9c4', azul:'#5b8dff', roxo:'#b18aff', rosa:'#f472b6', verde:'#4ade80', laranja:'#fb923c' };
+function styleAvatar(el, colorKey){
+  const hex = AVATAR_COLORS[colorKey];
+  if(hex){ el.style.background = hex + '26'; el.style.color = hex; }
+  else { el.style.background = ''; el.style.color = ''; }
+}
 function applyUserToUI(){
   if(currentUser){
-    document.getElementById('userAvatar').textContent = currentUser.name.slice(0,2).toUpperCase();
+    const av = document.getElementById('userAvatar');
+    av.textContent = currentUser.name.slice(0,2).toUpperCase();
+    styleAvatar(av, currentUser.avatarColor);
     document.getElementById('userNameLabel').textContent = currentUser.name;
     document.getElementById('userModeLabel').textContent = CLOUD_ENABLED ? 'conta na nuvem' : 'perfil local';
   } else {
     document.getElementById('userAvatar').textContent = '?';
     document.getElementById('userNameLabel').textContent = 'Visitante';
   }
-  const roomLabel = CLOUD_ENABLED ? (currentRoomData ? currentRoomData.name : (currentRoom ? currentRoom.id : 'nenhuma')) : (currentUser ? currentUser.room : '—');
+  const hasRoom = CLOUD_ENABLED && currentRoom;
+  const roomLabel = CLOUD_ENABLED ? (currentRoomData ? currentRoomData.name : (hasRoom ? 'carregando…' : 'nenhuma')) : (currentUser ? currentUser.room : '—');
   document.getElementById('roomChipName').textContent = roomLabel;
-  document.getElementById('roomDot').classList.toggle('offline', !(CLOUD_ENABLED && currentRoom));
+  document.getElementById('roomDot').classList.toggle('offline', !hasRoom);
+  document.getElementById('equipeRoomName').textContent = currentRoomData ? currentRoomData.name : (hasRoom ? 'carregando…' : '—');
+  document.getElementById('equipeRoomDesc').textContent = currentRoomData ? (currentRoomData.description || '') : '';
   document.getElementById('equipeRoomCode').textContent = currentRoom ? currentRoom.id : '—';
   document.getElementById('equipeRoomVis').textContent = currentRoomData ? (currentRoomData.visibility==='privada' ? '🔒 Privada' : '🌐 Pública') : '';
-  document.getElementById('equipeCloudView').style.display = (CLOUD_ENABLED && currentRoom) ? 'block' : 'none';
+  document.getElementById('equipeRoomCreated').textContent = currentRoomData ? fmtCreatedAt(currentRoomData.createdAt) : '';
+  document.getElementById('editRoomBtn').style.display = (currentRoomData && currentUser && currentRoomData.ownerUid===currentUser.uid) ? 'inline-flex' : 'none';
+  document.getElementById('equipeCloudView').style.display = hasRoom ? 'block' : 'none';
 }
-document.getElementById('logoutBtn').addEventListener('click', ()=>{
+document.getElementById('logoutBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
   if(CLOUD_ENABLED){
     confirmModal('Sair da sua conta?', ()=>auth.signOut(), {yesLabel:'Sair'});
   } else {
@@ -929,6 +1069,49 @@ document.getElementById('logoutBtn').addEventListener('click', ()=>{
   }
 });
 
+/* ================= PERFIL ================= */
+let selectedAvatarColor = null;
+document.getElementById('userRow').addEventListener('click', ()=>{
+  if(!currentUser) return;
+  document.getElementById('profileError').style.display = 'none';
+  document.getElementById('profileNameInput').value = currentUser.name || '';
+  selectedAvatarColor = currentUser.avatarColor || null;
+  const grid = document.getElementById('avatarColorGrid'); grid.innerHTML = '';
+  Object.entries(AVATAR_COLORS).forEach(([key, hex])=>{
+    const dot = document.createElement('div');
+    dot.className = 'avatar-color-dot' + (selectedAvatarColor===key ? ' active' : '');
+    dot.style.background = hex;
+    dot.addEventListener('click', ()=>{
+      selectedAvatarColor = key;
+      grid.querySelectorAll('.avatar-color-dot').forEach(d=>d.classList.remove('active'));
+      dot.classList.add('active');
+    });
+    grid.appendChild(dot);
+  });
+  document.getElementById('profileOverlay').style.display = 'flex';
+});
+document.getElementById('profileCloseBtn').addEventListener('click', ()=> document.getElementById('profileOverlay').style.display='none');
+document.getElementById('profileCancelBtn').addEventListener('click', ()=> document.getElementById('profileOverlay').style.display='none');
+document.getElementById('profileSaveBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('profileNameInput').value.trim();
+  if(!name){ showErr('profileError','Digite um nome.'); return; }
+  try{
+    if(CLOUD_ENABLED){
+      if(auth.currentUser) await auth.currentUser.updateProfile({ displayName: name });
+      if(currentRoom){
+        await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).set({
+          name, avatarColor: selectedAvatarColor
+        }, { merge:true });
+      }
+    } else {
+      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify({ ...currentUser, name, avatarColor:selectedAvatarColor }));
+    }
+    currentUser.name = name; currentUser.avatarColor = selectedAvatarColor;
+    applyUserToUI(); renderAll();
+    document.getElementById('profileOverlay').style.display = 'none';
+  }catch(err){ showErr('profileError', friendlyFirestoreError(err)); }
+});
+
 /* ================= GERENCIAR SALA ================= */
 function renderManageRoom(){
   if(!(CLOUD_ENABLED && currentRoom && currentRoomData)) return;
@@ -936,11 +1119,16 @@ function renderManageRoom(){
   const isOwner = currentRoomData.ownerUid === currentUser.uid;
   Object.entries(members).forEach(([uid, m])=>{
     const row = document.createElement('div'); row.className = 'lb-row';
-    row.innerHTML = `<div class="avatar sm">${(m.name||'?').slice(0,2).toUpperCase()}</div><div class="lb-name">${m.name}${uid===currentRoomData.ownerUid ? ' · dono(a)' : ''}</div>`;
+    const av = document.createElement('div'); av.className='avatar sm'; av.textContent=(m.name||'?').slice(0,2).toUpperCase(); styleAvatar(av, m.avatarColor);
+    const nameDiv = document.createElement('div'); nameDiv.className='lb-name'; nameDiv.textContent = m.name + (uid===currentRoomData.ownerUid ? ' · dono(a)' : '');
+    row.appendChild(av); row.appendChild(nameDiv);
     if(isOwner && uid !== currentUser.uid){
       const btn = document.createElement('button'); btn.className='btn btn-ghost'; btn.style.padding='6px 12px'; btn.style.fontSize='11.5px'; btn.textContent='Remover';
       btn.addEventListener('click', ()=>{
-        confirmModal(`Remover ${m.name} da sala?`, ()=> db.collection('rooms').doc(currentRoom.id).collection('members').doc(uid).delete(), {yesLabel:'Remover'});
+        confirmModal(`Remover ${m.name} da sala?`, async ()=>{
+          try{ await db.collection('rooms').doc(currentRoom.id).collection('members').doc(uid).delete(); }
+          catch(err){ alert(friendlyFirestoreError(err)); }
+        }, {yesLabel:'Remover'});
       });
       row.appendChild(btn);
     }
@@ -955,8 +1143,10 @@ document.getElementById('roomDangerBtn').addEventListener('click', ()=>{
     confirmModal('Excluir esta sala para sempre? Todas as atividades e membros serão apagados — essa ação não pode ser desfeita.', deleteRoomCascade, {yesLabel:'Excluir sala'});
   } else {
     confirmModal('Sair desta sala?', async ()=>{
-      await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).delete();
-      leaveRoomCleanup(); openRoomOverlay();
+      try{
+        await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).delete();
+        leaveRoomCleanup(); openRoomOverlay();
+      }catch(err){ alert(friendlyFirestoreError(err)); }
     }, {yesLabel:'Sair'});
   }
 });
@@ -970,8 +1160,45 @@ async function deleteRoomCascade(){
     batch.delete(roomRef);
     await batch.commit();
     leaveRoomCleanup(); openRoomOverlay();
-  }catch(err){ alert('Não foi possível excluir a sala: '+err.message); }
+  }catch(err){ alert(friendlyFirestoreError(err)); }
 }
+
+/* ================= EDITAR SALA ================= */
+let editVis = 'publica';
+document.getElementById('editRoomBtn').addEventListener('click', ()=>{
+  if(!currentRoomData) return;
+  document.getElementById('roomEditError').style.display = 'none';
+  document.getElementById('roomEditName').value = currentRoomData.name || '';
+  document.getElementById('roomEditDesc').value = currentRoomData.description || '';
+  editVis = currentRoomData.visibility || 'publica';
+  document.querySelectorAll('#roomEditVisToggle .vis-btn').forEach(b=>b.classList.toggle('active', b.dataset.vis===editVis));
+  document.getElementById('roomEditPassField').style.display = editVis==='privada' ? 'block' : 'none';
+  document.getElementById('roomEditPass').value = '';
+  document.getElementById('roomEditOverlay').style.display = 'flex';
+});
+document.querySelectorAll('#roomEditVisToggle .vis-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#roomEditVisToggle .vis-btn').forEach(x=>x.classList.toggle('active', x===b));
+    editVis = b.dataset.vis;
+    document.getElementById('roomEditPassField').style.display = editVis==='privada' ? 'block' : 'none';
+  });
+});
+document.getElementById('roomEditCloseBtn').addEventListener('click', ()=> document.getElementById('roomEditOverlay').style.display='none');
+document.getElementById('roomEditCancelBtn').addEventListener('click', ()=> document.getElementById('roomEditOverlay').style.display='none');
+document.getElementById('roomEditSaveBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('roomEditName').value.trim();
+  const desc = document.getElementById('roomEditDesc').value.trim();
+  const pass = document.getElementById('roomEditPass').value;
+  if(!name){ showErr('roomEditError','Digite um nome para a sala.'); return; }
+  if(editVis==='privada' && !pass && !(currentRoomData.password)){ showErr('roomEditError','Defina uma senha para a sala privada.'); return; }
+  const patch = { name, description: desc, visibility: editVis };
+  if(editVis==='privada'){ if(pass) patch.password = pass; }
+  else { patch.password = null; }
+  try{
+    await db.collection('rooms').doc(currentRoom.id).update(patch);
+    document.getElementById('roomEditOverlay').style.display = 'none';
+  }catch(err){ showErr('roomEditError', friendlyFirestoreError(err)); }
+});
 
 /* ================= ATIVIDADES: modelo e CRUD ================= */
 function taskState(t){
@@ -989,7 +1216,7 @@ function createActivity(payload){
     db.collection('rooms').doc(currentRoom.id).collection('activities').add({
       ...payload, completions, creatorUid: currentUser.uid, creatorName: currentUser.name,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(err=>alert('Não foi possível salvar: '+err.message));
+    }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
@@ -1004,7 +1231,7 @@ function updateActivity(dateStr, id, payload, oldActivity){
   if(CLOUD_ENABLED && currentRoom){
     db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({
       text:payload.text, description:payload.description, priority:payload.priority, date:payload.date, assignees:payload.assignees, completions
-    }).catch(err=>alert('Não foi possível salvar: '+err.message));
+    }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
@@ -1015,7 +1242,7 @@ function updateActivity(dateStr, id, payload, oldActivity){
 }
 function deleteTask(dateStr, id){
   if(CLOUD_ENABLED && currentRoom){
-    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).delete().catch(err=>alert('Não foi possível apagar: '+err.message));
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).delete().catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
@@ -1030,7 +1257,7 @@ function toggleOwnCompletion(dateStr, id){
   if(!st.assignees.some(a=>a.uid===uid)) return;
   const newVal = !st.completions[uid];
   if(CLOUD_ENABLED && currentRoom){
-    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({ [`completions.${uid}`]: newVal }).catch(err=>alert('Não foi possível atualizar: '+err.message));
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({ [`completions.${uid}`]: newVal }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     t.completions = t.completions || {}; t.completions[uid] = newVal;
     localSave(); renderAll(); renderCalendar();
@@ -1111,7 +1338,8 @@ function taskRow(dateStr, t, opts={}){
   const el = document.createElement('div');
   el.className = 'task' + (st.allDone ? ' done' : '') + (partial ? ' partial' : '');
 
-  const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>`<div class="avatar sm" title="${a.name}">${(a.name||'?').slice(0,2).toUpperCase()}</div>`).join('')}</div>` : '';
+  function liveName(a){ return (members[a.uid] && members[a.uid].name) || a.name || '?'; }
+  const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const hex=AVATAR_COLORS[col]; const style = hex ? ` style="background:${hex}26;color:${hex}"` : ''; return `<div class="avatar sm"${style} title="${nm}">${nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
   let subHtml = '';
   if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
   else if(t.description) subHtml = `<div class="task-sub">📝 ${(t.description.length>60 ? t.description.slice(0,60)+'…' : t.description)}</div>`;
@@ -1273,12 +1501,13 @@ function renderLeaderboard(){
     const row = document.createElement('div'); row.className='lb-row';
     row.innerHTML = `
       <div class="lb-rank">${i+1}</div>
-      <div class="avatar sm">${s.name.slice(0,2).toUpperCase()}</div>
+      <div class="avatar sm" id="lbav-${s.uid}">${s.name.slice(0,2).toUpperCase()}</div>
       <div class="lb-name">${s.name}${s.uid===currentUser.uid ? ' (você)' : ''}</div>
       <div class="lb-bar-wrap"><div class="lb-bar" style="width:${(s.done/maxDone*100).toFixed(0)}%"></div></div>
       <div class="lb-stat">${s.done} feitas · ${s.pending} pend.</div>
     `;
     el.appendChild(row);
+    styleAvatar(row.querySelector(`#lbav-${s.uid}`), members[s.uid] && members[s.uid].avatarColor);
   });
 }
 
