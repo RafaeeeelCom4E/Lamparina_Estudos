@@ -11,6 +11,37 @@ por quem participa de cada uma).
 - `firebase-config.js` — onde você cola as chaves do seu projeto Firebase.
 - `README.md` — este arquivo.
 
+## ⚠️ "Uncaught ReferenceError: Cannot access '...' before initialization"
+
+Se você viu esse erro no console (mencionando `AVATAR_COLORS` ou algo
+parecido) em uma versão anterior deste arquivo: era um bug real do
+código, já corrigido nesta versão — duas constantes (`AVATAR_COLORS` e
+`MONTHS`) estavam declaradas mais abaixo no arquivo do que o ponto em
+que o modo local tentava usá-las ao carregar a página, o que travava
+a inicialização inteira para quem já tinha um perfil local salvo no
+navegador. Baixe esta versão do `index.html` para resolver.
+
+## ⚠️ Regras e domínio certos, mas o site ainda cai em "Modo local ativo"
+
+Regras do Firestore e domínio autorizado são configurações do lado do
+**Firebase** (servidor); o "Modo local" é decidido pelo **navegador**,
+olhando só para o conteúdo de `firebase-config.js`. São coisas
+independentes — corrigir uma não corrige a outra. Confira nesta ordem:
+
+1. Abra `https://SEU-DOMINIO/firebase-config.js` direto no navegador
+   (troque pela URL real do seu site) e confira se os valores ali são
+   os reais do seu projeto — não `SUA_API_KEY` nem outro placeholder.
+   Se aparecer 404, o arquivo não foi publicado junto com o `index.html`.
+2. Abra o Console do navegador (F12) e procure por uma linha que
+   começa com `Firebase não inicializado:` — se aparecer, o texto do
+   erro ao lado mostra exatamente por que a inicialização falhou.
+3. Extensões de navegador (bloqueadores de anúncio, antirrastreamento)
+   às vezes bloqueiam domínios do Firebase (`gstatic.com`,
+   `googleapis.com`, `firebaseapp.com`). Se a aba "Rede"/"Network" do
+   DevTools mostrar requisições para esses domínios falhando (ex.
+   `ERR_BLOCKED_BY_CLIENT`), teste numa janela anônima com as
+   extensões desativadas.
+
 ## ⚠️ Erros de "Missing or insufficient permissions"
 
 Se aparecer essa mensagem ao criar atividade, excluir sala ou remover

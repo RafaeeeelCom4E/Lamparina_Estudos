@@ -695,6 +695,8 @@ try{
 const DB_KEY = 'lamparina_activities_v1';
 const LOCAL_USER_KEY = 'lamparina_user_v1';
 const ROOM_CACHE_KEY = 'lamparina_room_';
+const AVATAR_COLORS = { teal:'#2fd9c4', azul:'#5b8dff', roxo:'#b18aff', rosa:'#f472b6', verde:'#4ade80', laranja:'#fb923c' };
+const MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 let activities = {};
 let members = {};
@@ -1027,7 +1029,6 @@ if(CLOUD_ENABLED){
 }
 
 /* ================= UI: usuário / sala ================= */
-const AVATAR_COLORS = { teal:'#2fd9c4', azul:'#5b8dff', roxo:'#b18aff', rosa:'#f472b6', verde:'#4ade80', laranja:'#fb923c' };
 function styleAvatar(el, colorKey){
   const hex = AVATAR_COLORS[colorKey];
   if(hex){ el.style.background = hex + '26'; el.style.color = hex; }
@@ -1412,7 +1413,6 @@ document.getElementById('quickInput').addEventListener('keydown', e=>{ if(e.key=
 document.getElementById('quickDetailBtn').addEventListener('click', ()=> openTaskModal({ mode:'create', dateStr: document.getElementById('quickDate').value || todayStr() }));
 
 /* ================= CALENDAR ================= */
-const MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 function renderCalendar(){
   const y=calDate.getFullYear(), m=calDate.getMonth();
   document.getElementById('calMonthLabel').textContent = `${MONTHS[m]} de ${y}`;
