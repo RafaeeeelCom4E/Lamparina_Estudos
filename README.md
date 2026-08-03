@@ -9,7 +9,19 @@ por quem participa de cada uma).
 
 - `index.html` — o site inteiro (visual + lógica).
 - `firebase-config.js` — onde você cola as chaves do seu projeto Firebase.
+- `manifest.json` — permite instalar o site como app (PWA).
+- `service-worker.js` — cache básico, exigido pelos navegadores para
+  permitir a instalação como app.
+- `icons/` — ícones do app (favicon, ícone de instalação, etc). Todos
+  precisam ser publicados junto, na mesma pasta do `index.html`.
 - `README.md` — este arquivo.
+
+## Instalar o site como app
+
+Clique em "Instalar app" no topo da tela. No computador ou Android
+isso abre o instalador nativo do navegador; no iPhone/iPad (Safari não
+tem esse recurso) o botão mostra o passo a passo — toque no ícone de
+Compartilhar e escolha "Adicionar à Tela de Início".
 
 ## ⚠️ "Uncaught ReferenceError: Cannot access '...' before initialization"
 
@@ -98,12 +110,20 @@ que ajuda a identificar o problema.
 ## Regras do Firestore
 
 Estas regras foram simplificadas nesta etapa (menos dependências entre
-coleções) exatamente para reduzir a chance de erros de permissão:
+coleções) exatamente para reduzir a chance de erros de permissão. Elas
+mudaram nesta versão: entrou a coleção `users`, usada para lembrar em
+qual sala você está e sincronizar isso entre computador e celular —
+**se você já publicou uma versão anterior destas regras, precisa
+publicar esta de novo**:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
 
     match /rooms/{roomId} {
       allow read: if request.auth != null;
@@ -130,7 +150,9 @@ service cloud.firestore {
 ```
 
 O que isso significa, em resumo:
-- Só quem está logado pode ler ou escrever.
+- Só quem está logado pode ler ou escrever, e cada pessoa só mexe no
+  próprio documento em `users/{uid}` — é ali que fica guardado "qual é
+  a minha sala atual", para funcionar igual no computador e no celular.
 - Uma sala só pode ser **editada ou excluída** por quem a criou
   (`ownerUid`) — é assim que "Editar sala", "Remover membro" (feito
   pelo dono) e "Excluir sala" funcionam.
@@ -167,6 +189,16 @@ trate como segurança forte.
 - **CRUD completo**: criar (botão "Adicionar" ou "Detalhes"), editar
   (clique na atividade), marcar/desmarcar sua própria confirmação, e
   excluir (ícone de lixeira) — toda exclusão pede confirmação antes.
+- **Horário**: ao criar/editar, dá pra definir um horário (opcional).
+  Ele aparece como um selinho antes do título, e as listas (Painel,
+  Calendário, Atividades) passam a ordenar as atividades do dia pelo
+  horário, além de por concluído/pendente.
+- **Repetição semanal**: só ao criar uma atividade nova (não ao
+  editar), marque os dias da semana em que ela deve se repetir e até
+  quando — o app cria uma atividade independente para cada dia
+  correspondente, até um teto de 6 meses à frente. Atividades assim
+  ganham um ícone ↻. Ao excluir uma delas, você escolhe entre apagar
+  "só este dia" ou "todos os dias" da série.
 - Os nomes e cores mostrados nos participantes são sempre os **atuais**
   — se alguém mudar o nome no perfil, atividades antigas também
   atualizam, em vez de ficar com o nome antigo congelado.
@@ -175,10 +207,20 @@ trate como segurança forte.
 
 ## Como funcionam as salas
 
+- **O que é o código**: é o identificador único da sala — funciona como
+  um "nome de usuário" para a sala. Compartilhe-o com quem você quer
+  que entre. Em salas privadas, além do código é preciso saber a
+  senha; em salas públicas, o código nem é estritamente necessário,
+  já que a sala aparece listada na aba "Públicas" pelo nome.
 - **Pública**: aparece na aba "Salas públicas" para qualquer pessoa
-  logada entrar direto, sem senha.
+  logada ver os detalhes (nome, descrição, criador, data de criação) e
+  entrar direto, sem senha. Tocar numa sala da lista abre esses
+  detalhes antes de entrar, em vez de um botão gigante.
 - **Privada**: só entra quem tiver o código exato e a senha definida
   na criação.
+- **Só o dono vê o código e a senha da própria sala** num quadro
+  dedicado na aba Equipe (com um botão "mostrar/ocultar senha") — isso
+  resolve o problema de esquecer a senha depois de criar a sala.
 - Ao clicar em "Sala:" na barra lateral (ou "Trocar de sala" na aba
   Equipe), agora aparece primeiro um resumo da **sala em que você já
   está** — nome, descrição, código e visibilidade — em vez de ir
@@ -193,6 +235,10 @@ trate como segurança forte.
 - Se você for removido de uma sala por outra pessoa, o app detecta
   isso automaticamente e te leva de volta para a tela de escolher
   sala, com um aviso.
+- **Computador e celular na mesma conta**: a sala em que você está
+  agora é salva na nuvem (não só no navegador), então entrar com a
+  mesma conta em outro aparelho já te leva direto pra sua sala atual,
+  sem precisar escolher de novo.
 
 ## Perfil
 
@@ -212,3 +258,5 @@ trate como segurança forte.
   foi concluída por todo mundo).
 - Busca/filtro por prioridade na aba Atividades.
 - Exportar/importar dados do modo local para uma conta na nuvem.
+- Editar uma atividade recorrente e propagar a mudança para as
+  próximas ocorrências (hoje, editar só muda aquele dia específico).

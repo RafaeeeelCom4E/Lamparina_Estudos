@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Lamparina — organize seus dias</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#090c11">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -246,6 +251,7 @@ body::before{
 .login-card p{color:var(--text-faint); font-size:12.5px; margin-bottom:20px; line-height:1.5;}
 .field{text-align:left; margin-bottom:12px;}
 .field label{font-size:11.5px; color:var(--text-dim); display:block; margin-bottom:5px; font-weight:600;}
+.field-hint{font-size:11px; color:var(--text-faint); line-height:1.5; margin-top:6px;}
 .field input,.field textarea{width:100%; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; color:var(--text); font-size:13.5px; outline:none; resize:vertical;}
 .field input:focus,.field textarea:focus{border-color:var(--accent-dim);}
 .login-card .btn{width:100%; justify-content:center; padding:11px; margin-top:6px; font-size:13.5px;}
@@ -269,6 +275,10 @@ body::before{
 .prio-btn.active[data-p="baixa"]{border-color:var(--text-faint); color:var(--text);}
 .prio-btn.active[data-p="media"]{border-color:var(--yellow); color:var(--yellow); background:rgba(251,191,36,.1);}
 .prio-btn.active[data-p="alta"]{border-color:var(--red); color:var(--red); background:rgba(248,113,113,.1);}
+.weekday-toggle{display:flex; gap:5px;}
+.wd-btn{width:32px; height:32px; border-radius:50%; background:var(--bg-card); border:1px solid var(--border-soft); color:var(--text-dim); font-size:11.5px; font-weight:700; flex:none;}
+.wd-btn.active{background:var(--accent-soft); border-color:var(--accent-dim); color:var(--accent);}
+.time-badge{font-size:11px; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:99px; font-weight:700; flex:none;}
 .assignees-list{display:flex; flex-direction:column; gap:6px; max-height:150px; overflow:auto;}
 .assignee-row{display:flex; align-items:center; gap:9px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-size:12.5px; cursor:pointer;}
 .assignee-row input[type=checkbox]{width:15px; height:15px; accent-color:var(--accent);}
@@ -314,7 +324,7 @@ body::before{
     <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="localLampSvg"></svg>
     <h2>Bem-vindo(a) à Lamparina</h2>
     <p>O Firebase ainda não foi configurado (arquivo <code>firebase-config.js</code>), então este perfil fica salvo apenas neste dispositivo.</p>
-    <div class="field"><label>Seu nome</label><input type="text" id="loginName" placeholder="Ex: Barney" maxlength="24"></div>
+    <div class="field"><label>Seu nome</label><input type="text" id="loginName" placeholder="Insira seu nome aqui" maxlength="24"></div>
     <div class="field"><label>Nome da sala / equipe</label><input type="text" id="loginRoom" placeholder="Ex: Turma de Cálculo II" maxlength="30"></div>
     <button class="btn" id="loginBtn">Entrar</button>
     <div class="login-note">Preencha o <code>firebase-config.js</code> com os dados do seu projeto Firebase para ativar contas, Google, salas públicas/privadas e atividades em grupo (veja o README.md).</div>
@@ -337,7 +347,7 @@ body::before{
       <button class="auth-tab" data-tab="criar">Criar conta</button>
     </div>
     <div class="auth-error" id="authError"></div>
-    <div class="field" id="fieldNome" style="display:none;"><label>Seu nome</label><input type="text" id="authName" placeholder="Ex: Barney" maxlength="24"></div>
+    <div class="field" id="fieldNome" style="display:none;"><label>Seu nome</label><input type="text" id="authName" placeholder="Insira seu nome aqui" maxlength="24"></div>
     <div class="field"><label>E-mail</label><input type="email" id="authEmail" placeholder="voce@email.com"></div>
     <div class="field"><label>Senha</label><input type="password" id="authPass" placeholder="mínimo 6 caracteres"></div>
     <button class="btn" id="authSubmitBtn">Entrar</button>
@@ -372,7 +382,7 @@ body::before{
       <p>Crie uma sala, entre com um código, ou explore salas públicas.</p>
       <div class="auth-tabs" id="roomTabs">
         <button class="auth-tab active" data-rtab="criar">Criar</button>
-        <button class="auth-tab" data-rtab="entrar">Código</button>
+        <button class="auth-tab" data-rtab="entrar">Privado</button>
         <button class="auth-tab" data-rtab="publicas">Públicas</button>
       </div>
       <div class="auth-error" id="roomError"></div>
@@ -380,7 +390,11 @@ body::before{
       <div id="roomTabCriar">
         <div class="field"><label>Nome da sala</label><input type="text" id="roomNameInput" placeholder="ex: Turma de Cálculo II"></div>
         <div class="field"><label>Descrição (opcional)</label><textarea id="roomDescInput" rows="2" placeholder="Sobre o que é essa sala, matéria, turma..."></textarea></div>
-        <div class="field"><label>Código único</label><input type="text" id="roomCode" placeholder="ex: calc2-turma-a"></div>
+        <div class="field">
+          <label>Código único</label>
+          <input type="text" id="roomCode" placeholder="ex: calc2-turma-a">
+          <div class="field-hint">O código identifica sua sala de forma única — é ele que os outros vão usar para entrar. Salas públicas também podem ser encontradas pelo nome na aba "Públicas"; salas privadas só são acessadas por quem tiver esse código <b>e</b> a senha.</div>
+        </div>
         <div class="field">
           <label>Visibilidade</label>
           <div class="vis-toggle">
@@ -393,12 +407,14 @@ body::before{
       </div>
 
       <div id="roomTabEntrar" style="display:none;">
+        <div class="field-hint" style="margin-bottom:12px;">Use esta aba para entrar numa sala privada: peça o código e a senha para quem criou a sala.</div>
         <div class="field"><label>Código da sala</label><input type="text" id="joinCodeInput" placeholder="ex: calc2-turma-a"></div>
         <div class="field"><label>Senha (se a sala for privada)</label><input type="password" id="joinPassInput" placeholder="deixe em branco se for pública"></div>
         <button class="btn" id="joinRoomBtn">Entrar</button>
       </div>
 
       <div id="roomTabPublicas" style="display:none;">
+        <div class="field-hint" style="margin-bottom:12px;">Toque numa sala para ver os detalhes antes de entrar.</div>
         <div id="publicRoomsList" class="task-list" style="max-height:260px; overflow:auto;"></div>
       </div>
 
@@ -427,6 +443,21 @@ body::before{
       <button class="btn btn-ghost" id="roomEditCancelBtn" style="flex:1; justify-content:center;">Cancelar</button>
       <button class="btn" id="roomEditSaveBtn" style="flex:1; justify-content:center;">Salvar</button>
     </div>
+  </div>
+</div>
+
+<!-- DETALHES DE SALA PÚBLICA -->
+<div class="overlay" id="publicRoomOverlay" style="display:none; z-index:56;">
+  <div class="login-card" style="max-width:400px; text-align:left;">
+    <button class="modal-close" id="publicRoomCloseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="prName" style="text-align:left; margin-bottom:6px;">—</h2>
+    <p id="prDesc" style="text-align:left; margin-bottom:14px;"></p>
+    <div class="rc-meta">
+      <span class="code-pill" id="prCode">—</span>
+      <span class="vis-pill" id="prCreated"></span>
+      <span class="vis-pill" id="prCreator"></span>
+    </div>
+    <button class="btn" id="prJoinBtn" style="width:100%; justify-content:center;">Entrar nesta sala</button>
   </div>
 </div>
 
@@ -460,13 +491,31 @@ body::before{
     <div class="field"><label>Descrição (opcional)</label><textarea id="taskDescInput" rows="3" placeholder="Detalhes, links, o que precisa ser feito..."></textarea></div>
     <div style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Data</label><input type="date" id="taskDateInput"></div>
-      <div class="field" style="flex:1.4;">
-        <label>Prioridade</label>
-        <div class="prio-toggle" id="prioToggle">
-          <button type="button" class="prio-btn" data-p="baixa">Baixa</button>
-          <button type="button" class="prio-btn active" data-p="media">Média</button>
-          <button type="button" class="prio-btn" data-p="alta">Alta</button>
-        </div>
+      <div class="field" style="flex:1;"><label>Horário (opcional)</label><input type="time" id="taskTimeInput"></div>
+    </div>
+    <div class="field">
+      <label>Prioridade</label>
+      <div class="prio-toggle" id="prioToggle">
+        <button type="button" class="prio-btn" data-p="baixa">Baixa</button>
+        <button type="button" class="prio-btn active" data-p="media">Média</button>
+        <button type="button" class="prio-btn" data-p="alta">Alta</button>
+      </div>
+    </div>
+    <div class="field" id="repeatField">
+      <label>Repetir toda semana em</label>
+      <div class="weekday-toggle" id="weekdayToggle">
+        <button type="button" class="wd-btn" data-wd="0">D</button>
+        <button type="button" class="wd-btn" data-wd="1">S</button>
+        <button type="button" class="wd-btn" data-wd="2">T</button>
+        <button type="button" class="wd-btn" data-wd="3">Q</button>
+        <button type="button" class="wd-btn" data-wd="4">Q</button>
+        <button type="button" class="wd-btn" data-wd="5">S</button>
+        <button type="button" class="wd-btn" data-wd="6">S</button>
+      </div>
+      <div class="field-hint">Marque os dias para criar essa atividade automaticamente toda semana (até 6 meses à frente). Deixe tudo desmarcado para uma atividade única, só na data acima.</div>
+      <div class="field" id="repeatUntilWrap" style="display:none; margin-top:10px;">
+        <label>Repetir até</label>
+        <input type="date" id="taskRepeatUntil">
       </div>
     </div>
     <div class="field" id="assigneesField" style="display:none;">
@@ -489,6 +538,7 @@ body::before{
     <p id="confirmMsg" style="margin-bottom:20px;"></p>
     <div style="display:flex; gap:8px;">
       <button class="btn btn-ghost" id="confirmNoBtn" style="flex:1; justify-content:center;">Cancelar</button>
+      <button class="btn btn-danger" id="confirmExtraBtn" style="flex:1; justify-content:center; display:none;">Extra</button>
       <button class="btn btn-danger" id="confirmYesBtn" style="flex:1; justify-content:center;">Excluir</button>
     </div>
   </div>
@@ -539,6 +589,10 @@ body::before{
         <div><h1 id="viewTitle">Painel</h1><div class="topbar-sub" id="viewSub">Sua visão geral de hoje</div></div>
       </div>
       <div class="topbar-actions">
+        <button class="btn btn-ghost" id="installBtn" title="Instalar o Lamparina como app">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
+          Instalar app
+        </button>
         <div class="theme-swatches" id="themeSwatches">
           <div class="swatch active" data-t="teal"></div>
           <div class="swatch" data-t="azul"></div>
@@ -625,6 +679,14 @@ body::before{
             <div style="font-size:15px; font-weight:700; margin-bottom:4px;" id="equipeRoomName">—</div>
             <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px;" id="equipeRoomDesc"></div>
             <div class="code-box"><span class="code-pill" id="equipeRoomCode">—</span><span class="vis-pill" id="equipeRoomVis"></span><span class="vis-pill" id="equipeRoomCreated"></span></div>
+            <div id="ownerSecretBox" style="display:none; margin-top:10px;">
+              <div style="font-size:11px; color:var(--text-faint); margin-bottom:4px;">Só você (dono/a) vê isto — use para convidar a equipe:</div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span class="code-pill">código: <span id="ownerSecretCode">—</span></span>
+                <span class="code-pill" id="ownerSecretPassWrap" style="display:none;">senha: <span id="ownerSecretPass">••••••</span></span>
+                <button class="link-btn" id="toggleSecretBtn" style="margin-top:0;">mostrar senha</button>
+              </div>
+            </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-ghost" id="editRoomBtn" style="display:none;">Editar sala</button>
@@ -679,6 +741,25 @@ function applyTheme(t){
 document.getElementById('themeSwatches').addEventListener('click', e=>{ const sw=e.target.closest('.swatch'); if(sw) applyTheme(sw.dataset.t); });
 applyTheme(localStorage.getItem(THEME_KEY) || 'teal');
 
+/* ================= INSTALAR / BAIXAR O APP ================= */
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+document.getElementById('installBtn').addEventListener('click', async ()=>{
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try{ await deferredInstallPrompt.userChoice; }catch(e){}
+    deferredInstallPrompt = null;
+  } else {
+    alert('Para instalar:\n\niPhone/iPad (Safari): toque no ícone de Compartilhar e escolha "Adicionar à Tela de Início".\n\nAndroid/Chrome ou computador: procure "Instalar app" ou o ícone de instalação (⊕) na barra de endereço, ou o menu (⋮) do navegador.');
+  }
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); });
+}
+
 /* ================= FIREBASE INIT ================= */
 let CLOUD_ENABLED = false;
 let CLOUD_DISABLED_REASON = '';
@@ -715,6 +796,7 @@ let currentRoom = null;
 let currentRoomData = null;
 let unsubActivities=null, unsubMembers=null, unsubRoomDoc=null;
 let sawSelfInRoom = false;
+let secretRevealed = false;
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -734,11 +816,25 @@ function confirmModal(message, onYes, opts={}){
   document.getElementById('confirmOverlay').style.display = 'flex';
   const yesBtn = document.getElementById('confirmYesBtn');
   const noBtn = document.getElementById('confirmNoBtn');
-  function cleanup(){ document.getElementById('confirmOverlay').style.display='none'; yesBtn.removeEventListener('click', onYesHandler); noBtn.removeEventListener('click', onNoHandler); }
+  const extraBtn = document.getElementById('confirmExtraBtn');
+  if(opts.extraLabel && opts.onExtra){
+    extraBtn.textContent = opts.extraLabel;
+    extraBtn.style.display = 'flex';
+  } else {
+    extraBtn.style.display = 'none';
+  }
+  function cleanup(){
+    document.getElementById('confirmOverlay').style.display='none';
+    yesBtn.removeEventListener('click', onYesHandler);
+    noBtn.removeEventListener('click', onNoHandler);
+    extraBtn.removeEventListener('click', onExtraHandler);
+  }
   function onYesHandler(){ cleanup(); onYes(); }
   function onNoHandler(){ cleanup(); }
+  function onExtraHandler(){ cleanup(); if(opts.onExtra) opts.onExtra(); }
   yesBtn.addEventListener('click', onYesHandler);
   noBtn.addEventListener('click', onNoHandler);
+  extraBtn.addEventListener('click', onExtraHandler);
 }
 
 /* ================= LOCAL MODE ================= */
@@ -887,6 +983,7 @@ document.querySelectorAll('.vis-btn').forEach(b=>{
     document.getElementById('roomPassField').style.display = selectedVisibility==='privada' ? 'block' : 'none';
   });
 });
+let publicRoomsCache = {};
 async function loadPublicRooms(){
   const list = document.getElementById('publicRoomsList');
   list.innerHTML = '<div class="empty">Carregando...</div>';
@@ -894,16 +991,28 @@ async function loadPublicRooms(){
     const snap = await db.collection('rooms').where('visibility','==','publica').get();
     list.innerHTML = '';
     if(snap.empty){ list.appendChild(emptyMsg('Nenhuma sala pública ainda. Crie a primeira!')); return; }
+    publicRoomsCache = {};
     snap.forEach(doc=>{
       const d = doc.data();
-      const row = document.createElement('div'); row.className = 'public-room-row';
-      row.innerHTML = `<div><b>${d.name}</b><br><span style="color:var(--text-faint)">${doc.id}</span></div>`;
-      const btn = document.createElement('button'); btn.className='btn'; btn.style.padding='7px 12px'; btn.style.fontSize='12px'; btn.textContent='Entrar';
-      btn.addEventListener('click', ()=> joinRoom(doc.id));
-      row.appendChild(btn); list.appendChild(row);
+      publicRoomsCache[doc.id] = d;
+      const row = document.createElement('div'); row.className = 'public-room-row'; row.style.cursor = 'pointer';
+      row.innerHTML = `<div style="min-width:0;"><b>${d.name}</b><br><span style="color:var(--text-faint)">${d.description ? (d.description.length>40?d.description.slice(0,40)+'…':d.description) : doc.id}</span></div><span style="color:var(--text-faint); font-size:16px;">›</span>`;
+      row.addEventListener('click', ()=> openPublicRoomDetail(doc.id));
+      list.appendChild(row);
     });
   }catch(err){ list.innerHTML=''; list.appendChild(emptyMsg('Não foi possível carregar as salas públicas.')); }
 }
+function openPublicRoomDetail(code){
+  const d = publicRoomsCache[code]; if(!d) return;
+  document.getElementById('prName').textContent = d.name;
+  document.getElementById('prDesc').textContent = d.description || 'Sem descrição.';
+  document.getElementById('prCode').textContent = code;
+  document.getElementById('prCreated').textContent = fmtCreatedAt(d.createdAt);
+  document.getElementById('prCreator').textContent = 'criada por ' + (d.ownerName || '—');
+  document.getElementById('prJoinBtn').onclick = ()=> joinRoom(code);
+  document.getElementById('publicRoomOverlay').style.display = 'flex';
+}
+document.getElementById('publicRoomCloseBtn').addEventListener('click', ()=> document.getElementById('publicRoomOverlay').style.display='none');
 function friendlyFirestoreError(err){
   if(err && err.code === 'permission-denied'){
     return 'Permissão negada pelo Firestore. As regras de segurança do banco provavelmente não foram publicadas (ou estão desatualizadas) — confira o README.md, cole as regras atuais em Firestore Database > Regras e clique em "Publicar".';
@@ -953,14 +1062,19 @@ async function joinRoom(code){
   }, { merge:true });
   currentRoom = { id: code };
   localStorage.setItem(ROOM_CACHE_KEY + currentUser.uid, code);
+  try{ await db.collection('users').doc(currentUser.uid).set({ currentRoom: code, name: currentUser.name }, { merge:true }); }catch(e){}
   document.getElementById('roomOverlay').style.display = 'none';
+  document.getElementById('publicRoomOverlay').style.display = 'none';
   applyUserToUI();
   startRoomListeners();
 }
 function leaveRoomCleanup(){
   stopRoomListeners();
   currentRoom = null;
-  if(currentUser) localStorage.removeItem(ROOM_CACHE_KEY + currentUser.uid);
+  if(currentUser){
+    localStorage.removeItem(ROOM_CACHE_KEY + currentUser.uid);
+    if(CLOUD_ENABLED) db.collection('users').doc(currentUser.uid).set({ currentRoom: null }, { merge:true }).catch(()=>{});
+  }
   applyUserToUI(); renderAll(); renderCalendar();
 }
 
@@ -1018,11 +1132,17 @@ if(CLOUD_ENABLED){
     if(user){
       currentUser = { uid:user.uid, name:user.displayName || (user.email ? user.email.split('@')[0] : 'Estudante'), email:user.email };
       document.getElementById('authOverlay').style.display = 'none';
-      const cachedRoom = localStorage.getItem(ROOM_CACHE_KEY + user.uid);
-      if(cachedRoom){
+      let roomToJoin = null;
+      // Fonte principal: Firestore (sincroniza entre computador e celular). Cache local é só um fallback rápido.
+      try{
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        if(userDoc.exists && userDoc.data().currentRoom) roomToJoin = userDoc.data().currentRoom;
+      }catch(e){}
+      if(!roomToJoin) roomToJoin = localStorage.getItem(ROOM_CACHE_KEY + user.uid);
+      if(roomToJoin){
         try{
-          const snap = await db.collection('rooms').doc(cachedRoom).get();
-          if(snap.exists){ await joinRoom(cachedRoom); return; }
+          const snap = await db.collection('rooms').doc(roomToJoin).get();
+          if(snap.exists){ await joinRoom(roomToJoin); return; }
         }catch(e){}
       }
       applyUserToUI();
@@ -1066,9 +1186,25 @@ function applyUserToUI(){
   document.getElementById('equipeRoomVis').textContent = currentRoomData ? (currentRoomData.visibility==='privada' ? '🔒 Privada' : '🌐 Pública') : '';
   document.getElementById('equipeRoomCreated').textContent = currentRoomData ? fmtCreatedAt(currentRoomData.createdAt) : '';
   document.getElementById('editRoomBtn').style.display = (currentRoomData && currentUser && currentRoomData.ownerUid===currentUser.uid) ? 'inline-flex' : 'none';
+  const isOwnerNow = currentRoomData && currentUser && currentRoomData.ownerUid===currentUser.uid;
+  document.getElementById('ownerSecretBox').style.display = isOwnerNow ? 'block' : 'none';
+  if(isOwnerNow){
+    document.getElementById('ownerSecretCode').textContent = currentRoom.id;
+    const passWrap = document.getElementById('ownerSecretPassWrap');
+    if(currentRoomData.visibility==='privada'){
+      passWrap.style.display = 'inline-flex';
+      document.getElementById('ownerSecretPass').textContent = secretRevealed ? (currentRoomData.password || '—') : '••••••';
+    } else {
+      passWrap.style.display = 'none';
+    }
+  }
   document.getElementById('equipeCloudView').style.display = hasRoom ? 'block' : 'none';
 }
-document.getElementById('logoutBtn').addEventListener('click', (e)=>{
+document.getElementById('toggleSecretBtn').addEventListener('click', ()=>{
+  secretRevealed = !secretRevealed;
+  document.getElementById('toggleSecretBtn').textContent = secretRevealed ? 'ocultar senha' : 'mostrar senha';
+  applyUserToUI();
+});document.getElementById('logoutBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
   if(CLOUD_ENABLED){
     confirmModal('Sair da sua conta?', ()=>auth.signOut(), {yesLabel:'Sair'});
@@ -1110,6 +1246,7 @@ document.getElementById('profileSaveBtn').addEventListener('click', async ()=>{
   try{
     if(CLOUD_ENABLED){
       if(auth.currentUser) await auth.currentUser.updateProfile({ displayName: name });
+      await db.collection('users').doc(currentUser.uid).set({ name, avatarColor: selectedAvatarColor }, { merge:true });
       if(currentRoom){
         await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).set({
           name, avatarColor: selectedAvatarColor
@@ -1232,7 +1369,7 @@ function createActivity(payload){
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
-    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, priority:payload.priority, assignees:payload.assignees, completions });
+    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1242,13 +1379,13 @@ function updateActivity(dateStr, id, payload, oldActivity){
   payload.assignees.forEach(a=> completions[a.uid] = oldCompletions[a.uid] || false);
   if(CLOUD_ENABLED && currentRoom){
     db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({
-      text:payload.text, description:payload.description, priority:payload.priority, date:payload.date, assignees:payload.assignees, completions
+      text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
     }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     if(!activities[payload.date]) activities[payload.date] = [];
-    activities[payload.date].push({ id, text:payload.text, description:payload.description, priority:payload.priority, assignees:payload.assignees, completions });
+    activities[payload.date].push({ id, text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1259,6 +1396,31 @@ function deleteTask(dateStr, id){
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     localSave(); renderAll(); renderCalendar();
+  }
+}
+async function deleteRecurrenceSeries(recurrenceId){
+  if(CLOUD_ENABLED && currentRoom){
+    try{
+      const snap = await db.collection('rooms').doc(currentRoom.id).collection('activities').where('recurrenceId','==',recurrenceId).get();
+      const batch = db.batch();
+      snap.forEach(d=>batch.delete(d.ref));
+      await batch.commit();
+    }catch(err){ alert(friendlyFirestoreError(err)); }
+  } else {
+    Object.keys(activities).forEach(ds=>{
+      activities[ds] = activities[ds].filter(t=>t.recurrenceId!==recurrenceId);
+      if(activities[ds].length===0) delete activities[ds];
+    });
+    localSave(); renderAll(); renderCalendar();
+  }
+}
+function confirmDeleteTask(dateStr, t){
+  if(t.recurrenceId){
+    confirmModal('Essa atividade se repete toda semana. O que deseja excluir?', ()=>deleteTask(dateStr, t.id), {
+      yesLabel:'Só este dia', extraLabel:'Todos os dias', onExtra:()=>deleteRecurrenceSeries(t.recurrenceId)
+    });
+  } else {
+    confirmModal('Excluir esta atividade? Essa ação não pode ser desfeita.', ()=> deleteTask(dateStr, t.id));
   }
 }
 function toggleOwnCompletion(dateStr, id){
@@ -1279,6 +1441,7 @@ function toggleOwnCompletion(dateStr, id){
 /* ================= MODAL DE ATIVIDADE ================= */
 let editingTask = null;
 let modalPriority = 'media';
+let selectedWeekdays = new Set();
 function openTaskModal(opts){
   editingTask = opts.mode==='edit' ? opts : null;
   document.getElementById('taskModalTitle').textContent = opts.mode==='edit' ? 'Editar atividade' : 'Nova atividade';
@@ -1287,9 +1450,17 @@ function openTaskModal(opts){
   document.getElementById('taskTitleInput').value = t ? t.text : '';
   document.getElementById('taskDescInput').value = t ? (t.description||'') : '';
   document.getElementById('taskDateInput').value = t ? (t.date || opts.dateStr) : (opts.dateStr || todayStr());
+  document.getElementById('taskTimeInput').value = t ? (t.time||'') : '';
   modalPriority = t ? (t.priority||'media') : 'media';
   document.querySelectorAll('.prio-btn').forEach(b=>b.classList.toggle('active', b.dataset.p===modalPriority));
   document.getElementById('taskDeleteBtn').style.display = opts.mode==='edit' ? 'block' : 'none';
+
+  // repetição: só faz sentido ao criar uma atividade nova
+  selectedWeekdays = new Set();
+  document.querySelectorAll('.wd-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('taskRepeatUntil').value = '';
+  document.getElementById('repeatUntilWrap').style.display = 'none';
+  document.getElementById('repeatField').style.display = opts.mode==='edit' ? 'none' : 'block';
 
   const canGroup = CLOUD_ENABLED && currentRoom && Object.keys(members).length>0;
   document.getElementById('assigneesField').style.display = canGroup ? 'block' : 'none';
@@ -1311,11 +1482,36 @@ document.getElementById('taskCancelBtn').addEventListener('click', closeTaskModa
 document.querySelectorAll('.prio-btn').forEach(b=>{
   b.addEventListener('click', ()=>{ modalPriority = b.dataset.p; document.querySelectorAll('.prio-btn').forEach(x=>x.classList.toggle('active', x===b)); });
 });
+document.querySelectorAll('.wd-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const wd = b.dataset.wd;
+    if(selectedWeekdays.has(wd)){ selectedWeekdays.delete(wd); b.classList.remove('active'); }
+    else { selectedWeekdays.add(wd); b.classList.add('active'); }
+    document.getElementById('repeatUntilWrap').style.display = selectedWeekdays.size>0 ? 'block' : 'none';
+  });
+});
+function datesForRecurrence(startDateStr, weekdaySet, untilStr){
+  const dates = [];
+  const start = new Date(startDateStr+'T00:00:00');
+  const maxHorizon = new Date(start); maxHorizon.setDate(maxHorizon.getDate()+182); // teto de ~6 meses
+  let until = untilStr ? new Date(untilStr+'T00:00:00') : maxHorizon;
+  if(until > maxHorizon) until = maxHorizon;
+  const cursor = new Date(start);
+  while(cursor <= until){
+    if(weekdaySet.has(String(cursor.getDay()))) dates.push(fmtDate(cursor));
+    cursor.setDate(cursor.getDate()+1);
+  }
+  return dates;
+}
 document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
   const title = document.getElementById('taskTitleInput').value.trim();
   const desc = document.getElementById('taskDescInput').value.trim();
   const dateStr = document.getElementById('taskDateInput').value || todayStr();
+  const timeStr = document.getElementById('taskTimeInput').value || '';
   if(!title){ showErr('taskError','Digite um título.'); return; }
+  const isRepeating = !editingTask && selectedWeekdays.size>0;
+  const repeatUntil = document.getElementById('taskRepeatUntil').value;
+  if(isRepeating && !repeatUntil){ showErr('taskError','Escolha até quando repetir.'); return; }
   const canGroup = CLOUD_ENABLED && currentRoom && Object.keys(members).length>0;
   let assignees;
   if(canGroup){
@@ -1326,15 +1522,30 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
   } else {
     assignees = [{ uid: myUid(), name: currentUser ? currentUser.name : 'Eu' }];
   }
-  const payload = { text:title, description:desc, priority:modalPriority, date:dateStr, assignees };
-  if(editingTask) updateActivity(editingTask.dateStr, editingTask.activity.id, payload, editingTask.activity);
-  else createActivity(payload);
+  if(isRepeating){
+    const dates = datesForRecurrence(dateStr, selectedWeekdays, repeatUntil);
+    if(dates.length===0){ showErr('taskError','Nenhuma data cai nos dias escolhidos dentro desse período.'); return; }
+    const recurrenceId = 'rec_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+    dates.forEach(ds=>{
+      createActivity({ text:title, description:desc, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
+    });
+  } else {
+    const payload = { text:title, description:desc, priority:modalPriority, time:timeStr, date:dateStr, assignees };
+    if(editingTask) updateActivity(editingTask.dateStr, editingTask.activity.id, payload, editingTask.activity);
+    else createActivity(payload);
+  }
   closeTaskModal();
 });
 document.getElementById('taskDeleteBtn').addEventListener('click', ()=>{
   if(!editingTask) return;
-  const dateStr = editingTask.dateStr, id = editingTask.activity.id;
-  confirmModal('Excluir esta atividade? Essa ação não pode ser desfeita.', ()=>{ deleteTask(dateStr, id); closeTaskModal(); });
+  const dateStr = editingTask.dateStr, t = editingTask.activity;
+  if(t.recurrenceId){
+    confirmModal('Essa atividade se repete toda semana. O que deseja excluir?', ()=>{ deleteTask(dateStr, t.id); closeTaskModal(); }, {
+      yesLabel:'Só este dia', extraLabel:'Todos os dias', onExtra:()=>{ deleteRecurrenceSeries(t.recurrenceId); closeTaskModal(); }
+    });
+  } else {
+    confirmModal('Excluir esta atividade? Essa ação não pode ser desfeita.', ()=>{ deleteTask(dateStr, t.id); closeTaskModal(); });
+  }
 });
 
 /* ================= TASK ROW ================= */
@@ -1359,7 +1570,7 @@ function taskRow(dateStr, t, opts={}){
   el.innerHTML = `
     <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade'}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
     <div class="task-main">
-      <div class="task-top"><span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span></div>
+      <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}</div>
       ${subHtml}
     </div>
     ${opts.showDate ? `<div class="task-date">${dateLabelShort(dateStr)}</div>` : ''}
@@ -1372,7 +1583,7 @@ function taskRow(dateStr, t, opts={}){
   el.querySelector('.task-edit').addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal({ mode:'edit', dateStr, activity:t }); });
   el.querySelector('.task-del').addEventListener('click', (e)=>{
     e.stopPropagation();
-    confirmModal('Excluir esta atividade? Essa ação não pode ser desfeita.', ()=> deleteTask(dateStr, t.id));
+    confirmDeleteTask(dateStr, t);
   });
   return el;
 }
@@ -1405,12 +1616,18 @@ function renderDashboard(){
 
   const todayEl = document.getElementById('todayList'); todayEl.innerHTML = '';
   if(todayMine.length===0) todayEl.appendChild(emptyMsg('Nenhuma atividade para hoje. Adicione uma acima ✦'));
-  else todayMine.slice().sort((a,b)=> (a.completions&&a.completions[uid]?1:0) - (b.completions&&b.completions[uid]?1:0)).forEach(tk=>todayEl.appendChild(taskRow(t, tk)));
+  else todayMine.slice().sort((a,b)=>{
+    const da = a.completions&&a.completions[uid]?1:0, db = b.completions&&b.completions[uid]?1:0;
+    if(da!==db) return da-db;
+    return (a.time||'99:99').localeCompare(b.time||'99:99');
+  }).forEach(tk=>todayEl.appendChild(taskRow(t, tk)));
 
   const upEl = document.getElementById('upcomingList'); upEl.innerHTML = ''; let any=false;
   for(let i=1;i<=6;i++){
     const d=new Date(base); d.setDate(base.getDate()+i); const ds=fmtDate(d);
-    myTasksForDate(ds).filter(tk=> !(tk.completions && tk.completions[uid])).forEach(tk=>{ upEl.appendChild(taskRow(ds, tk, {showDate:true})); any=true; });
+    myTasksForDate(ds).filter(tk=> !(tk.completions && tk.completions[uid]))
+      .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'))
+      .forEach(tk=>{ upEl.appendChild(taskRow(ds, tk, {showDate:true})); any=true; });
   }
   if(!any) upEl.appendChild(emptyMsg('Nada planejado para os próximos dias.'));
 }
@@ -1460,7 +1677,11 @@ function renderSidePanel(){
   document.getElementById('sideDateSub').textContent = selectedDate===todayStr() ? 'Hoje' : '';
   const list = dayTasks(selectedDate); const el=document.getElementById('sideList'); el.innerHTML='';
   if(list.length===0) el.appendChild(emptyMsg('Sem atividades planejadas para este dia.'));
-  else list.slice().sort((a,b)=> (taskState(a).allDone?1:0)-(taskState(b).allDone?1:0)).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
+  else list.slice().sort((a,b)=>{
+    const da = taskState(a).allDone?1:0, db = taskState(b).allDone?1:0;
+    if(da!==db) return da-db;
+    return (a.time||'99:99').localeCompare(b.time||'99:99');
+  }).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
 }
 document.getElementById('sideAddBtn').addEventListener('click', ()=>{
   const input=document.getElementById('sideInput'); const text=input.value.trim(); if(!text) return;
@@ -1481,7 +1702,7 @@ function renderAllList(){
   const el = document.getElementById('allList'); el.innerHTML='';
   const dates = Object.keys(activities).sort(); let any=false;
   dates.forEach(ds=>{
-    activities[ds].forEach(tk=>{
+    activities[ds].slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).forEach(tk=>{
       const st = taskState(tk);
       if(currentFilter==='pendentes' && st.allDone) return;
       if(currentFilter==='concluidas' && !st.allDone) return;
