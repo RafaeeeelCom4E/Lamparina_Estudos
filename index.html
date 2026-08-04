@@ -204,7 +204,10 @@ body::before{
 .dow-row{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px;}
 .dow-row div{text-align:center; font-size:11px; color:var(--text-faint); font-weight:600; text-transform:uppercase; letter-spacing:.5px;}
 .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
-.day-cell{aspect-ratio:1/.82; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-elev); padding:7px; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:border-color .15s, background .15s;}
+.day-cell{aspect-ratio:1/.82; border-radius:10px; border:1px solid var(--border-soft); background:var(--bg-elev); padding:7px; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:border-color .15s, background .6s ease, box-shadow .6s ease;}
+.day-cell.day-complete{background:linear-gradient(160deg, var(--accent-soft), var(--bg-elev) 75%); box-shadow:0 0 16px -2px var(--accent-dim), inset 0 0 0 1px var(--accent-dim);}
+.day-bottom{display:flex; align-items:center; gap:8px; align-self:flex-end;}
+.day-prio-dot{width:6px; height:6px; border-radius:50%; flex:none; transition:opacity .6s ease, transform .6s ease;}
 .day-cell:hover{border-color:var(--accent-dim);}
 .day-cell.empty-cell{visibility:hidden;}
 .day-cell.today{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset;}
@@ -274,7 +277,7 @@ body::before{
 .vis-btn.active{background:var(--accent-soft); border-color:var(--accent-dim); color:var(--accent);}
 .prio-toggle{display:flex; gap:4px;}
 .prio-btn{flex:1; background:var(--bg-card); border:1px solid var(--border-soft); color:var(--text-dim); padding:8px 6px; border-radius:8px; font-size:11.5px; font-weight:600;}
-.prio-btn.active[data-p="baixa"]{border-color:var(--text-faint); color:var(--text);}
+.prio-btn.active[data-p="baixa"]{border-color:var(--green); color:var(--green); background:rgba(74,222,128,.1);}
 .prio-btn.active[data-p="media"]{border-color:var(--yellow); color:var(--yellow); background:rgba(251,191,36,.1);}
 .prio-btn.active[data-p="alta"]{border-color:var(--red); color:var(--red); background:rgba(248,113,113,.1);}
 .weekday-toggle{display:flex; gap:5px;}
@@ -289,7 +292,7 @@ body::before{
 .user-row{cursor:pointer;}
 .room-current-box{text-align:left;}
 .room-current-box .rc-name{font-size:16px; font-weight:700; margin-bottom:2px;}
-.room-current-box .rc-desc{font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;}
+.room-current-box .rc-desc{font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-bottom:18px;}
 .room-current-box .rc-meta{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
 .room-current-box .rc-actions{display:flex; gap:8px;}
 .avatar-color-grid{display:flex; gap:8px; flex-wrap:wrap;}
@@ -453,7 +456,7 @@ body::before{
   <div class="login-card" style="max-width:400px; text-align:left;">
     <button class="modal-close" id="publicRoomCloseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h2 id="prName" style="text-align:left; margin-bottom:6px;">—</h2>
-    <p id="prDesc" style="text-align:left; margin-bottom:14px;"></p>
+    <p id="prDesc" style="text-align:left; margin-bottom:20px;"></p>
     <div class="rc-meta">
       <span class="code-pill" id="prCode">—</span>
       <span class="vis-pill" id="prCreated"></span>
@@ -805,6 +808,7 @@ let currentRoomData = null;
 let unsubActivities=null, unsubMembers=null, unsubRoomDoc=null;
 let sawSelfInRoom = false;
 let secretRevealed = false;
+let dayCellRefs = {};
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -1365,7 +1369,7 @@ function taskState(t){
   return { assignees, completions, doneCount, total: assignees.length, allDone: doneCount>0 && doneCount===assignees.length };
 }
 function priorityMeta(p){
-  return { baixa:{label:'Baixa',color:'var(--text-faint)'}, media:{label:'Média',color:'var(--yellow)'}, alta:{label:'Alta',color:'var(--red)'} }[p] || { label:'Média', color:'var(--yellow)' };
+  return { baixa:{label:'Baixa',color:'var(--green)'}, media:{label:'Média',color:'var(--yellow)'}, alta:{label:'Alta',color:'var(--red)'} }[p] || { label:'Média', color:'var(--yellow)' };
 }
 function createActivity(payload){
   if(CLOUD_ENABLED && currentRoom){
@@ -1652,33 +1656,56 @@ document.getElementById('quickDetailBtn').addEventListener('click', ()=> openTas
 function renderCalendar(){
   const y=calDate.getFullYear(), m=calDate.getMonth();
   document.getElementById('calMonthLabel').textContent = `${MONTHS[m]} de ${y}`;
-  const grid=document.getElementById('calGrid'); grid.innerHTML='';
-  const firstDow=new Date(y,m,1).getDay(); const daysInMonth=new Date(y,m+1,0).getDate();
-  const tstr=todayStr();
-  for(let i=0;i<firstDow;i++){ const f=document.createElement('div'); f.className='day-cell empty-cell'; grid.appendChild(f); }
-  for(let day=1; day<=daysInMonth; day++){
-    const ds = `${y}-${pad(m+1)}-${pad(day)}`; const list = dayTasks(ds);
-    const cell = document.createElement('div'); cell.className='day-cell';
-    if(ds===tstr) cell.classList.add('today');
-    if(ds===selectedDate) cell.classList.add('selected');
-    let lampState = null;
+  const grid=document.getElementById('calGrid');
+  const monthKey = `${y}-${pad(m+1)}`;
+  if(grid.dataset.monthKey !== monthKey){
+    // mudou de mês (ou é a primeira vez): reconstrói o esqueleto da grade do zero
+    grid.innerHTML = ''; dayCellRefs = {};
+    const firstDow=new Date(y,m,1).getDay(); const daysInMonth=new Date(y,m+1,0).getDate();
+    for(let i=0;i<firstDow;i++){ const f=document.createElement('div'); f.className='day-cell empty-cell'; grid.appendChild(f); }
+    for(let day=1; day<=daysInMonth; day++){
+      const ds = `${y}-${pad(m+1)}-${pad(day)}`;
+      const cell = document.createElement('div'); cell.className='day-cell';
+      const num = document.createElement('div'); num.className='day-num'; num.textContent=day;
+      const bottom = document.createElement('div'); bottom.className='day-bottom'; bottom.style.display='none';
+      const prioDot = document.createElement('span'); prioDot.className='day-prio-dot'; prioDot.style.opacity='0';
+      const lampWrap = document.createElement('div'); lampWrap.className='day-lamp';
+      lampWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="none">${miniLampSVG()}</svg>`;
+      bottom.appendChild(prioDot); bottom.appendChild(lampWrap);
+      cell.appendChild(num); cell.appendChild(bottom);
+      cell.addEventListener('click', ()=>{ selectedDate=ds; updateCalendarCellStates(); renderSidePanel(); });
+      grid.appendChild(cell);
+      dayCellRefs[ds] = { cell, lampWrap, prioDot, bottom };
+    }
+    grid.dataset.monthKey = monthKey;
+  }
+  updateCalendarCellStates();
+}
+function updateCalendarCellStates(){
+  const tstr = todayStr();
+  Object.entries(dayCellRefs).forEach(([ds, refs])=>{
+    const list = dayTasks(ds);
+    const { cell, lampWrap, prioDot, bottom } = refs;
+    cell.classList.toggle('today', ds===tstr);
+    cell.classList.toggle('selected', ds===selectedDate);
+    let lampState = null, topPrio = null;
     if(list.length>0){
       const states = list.map(taskState);
       const allDone = states.every(s=>s.allDone);
       const anyProgress = states.some(s=>s.doneCount>0);
       lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'pending');
+      const prios = list.map(t=>t.priority||'media');
+      topPrio = prios.includes('alta') ? 'alta' : (prios.includes('media') ? 'media' : 'baixa');
     }
-    const num = document.createElement('div'); num.className='day-num'; num.textContent=day;
-    cell.appendChild(num);
+    cell.classList.toggle('day-complete', lampState==='lit');
+    bottom.style.display = lampState ? 'flex' : 'none';
     if(lampState){
-      const lampWrap = document.createElement('div');
       lampWrap.className = 'day-lamp ' + lampState;
-      lampWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="none">${miniLampSVG()}</svg>`;
-      cell.appendChild(lampWrap);
+      prioDot.style.background = priorityMeta(topPrio).color;
+      prioDot.style.opacity = lampState==='lit' ? '0' : '1';
+      prioDot.style.transform = lampState==='lit' ? 'scale(.3)' : 'scale(1)';
     }
-    cell.addEventListener('click', ()=>{ selectedDate=ds; renderCalendar(); renderSidePanel(); });
-    grid.appendChild(cell);
-  }
+  });
 }
 document.getElementById('calPrev').addEventListener('click', ()=>{ calDate.setMonth(calDate.getMonth()-1); renderCalendar(); });
 document.getElementById('calNext').addEventListener('click', ()=>{ calDate.setMonth(calDate.getMonth()+1); renderCalendar(); });
