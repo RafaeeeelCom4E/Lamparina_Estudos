@@ -214,8 +214,10 @@ body::before{
 .day-lamp{width:16px; height:16px; align-self:flex-end; color:var(--text-faint); opacity:.5;}
 .day-lamp.lit{color:var(--accent); opacity:1; filter:drop-shadow(0 0 4px var(--accent));}
 .day-lamp.partial{color:var(--yellow); opacity:.9;}
+.day-lamp.pending{color:var(--blue); opacity:.95;}
 
-.side-panel{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px; position:sticky; top:20px;}
+.cal-side-col{display:flex; flex-direction:column; gap:18px; position:sticky; top:20px;}
+.side-panel{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px;}
 .side-panel h3{font-size:14px; margin-bottom:2px; text-transform:capitalize;}
 .side-panel .sub{font-size:11.5px; color:var(--text-faint); margin-bottom:14px;}
 .side-add{display:flex; gap:6px; margin-bottom:8px;}
@@ -233,8 +235,8 @@ body::before{
 /* ---- Equipe / leaderboard ---- */
 .room-banner{display:flex; align-items:center; justify-content:space-between; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px 18px; margin-bottom:20px; flex-wrap:wrap; gap:12px;}
 .room-banner .code-box{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-.code-pill{background:var(--bg-elev); border:1px solid var(--border-soft); padding:8px 14px; border-radius:9px; font-family:'Space Grotesk'; font-weight:700; letter-spacing:1px; color:var(--accent); font-size:13px;}
-.vis-pill{font-size:11.5px; color:var(--text-dim); background:var(--bg-elev); border:1px solid var(--border-soft); padding:6px 10px; border-radius:99px;}
+.code-pill{background:var(--bg-elev); border:1px solid var(--border-soft); padding:8px 14px; border-radius:9px; font-family:'Space Grotesk'; font-weight:700; letter-spacing:1px; color:var(--accent); font-size:13px; white-space:nowrap; display:inline-flex; align-items:center;}
+.vis-pill{font-size:11.5px; color:var(--text-dim); background:var(--bg-elev); border:1px solid var(--border-soft); padding:6px 10px; border-radius:99px; white-space:nowrap; display:inline-flex; align-items:center;}
 .lb-row{display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px;}
 .lb-rank{width:20px; text-align:center; color:var(--text-faint); font-weight:700; font-size:12.5px;}
 .lb-name{flex:1; font-size:13.5px; font-weight:600;}
@@ -306,7 +308,7 @@ body::before{
   .main{padding:18px 16px 40px;}
   .stat-grid{grid-template-columns:repeat(2,1fr);}
   .cal-layout{grid-template-columns:1fr;}
-  .side-panel{position:static;}
+  .cal-side-col{position:static;}
   .day-cell{aspect-ratio:1/1;}
   .topbar h1{font-size:18px;}
 }
@@ -643,20 +645,27 @@ body::before{
           <div class="legend">
             <span><i style="background:var(--accent)"></i>Lamparina acesa = tudo concluído</span>
             <span><i style="background:var(--yellow)"></i>Parcial</span>
-            <span><i style="background:var(--text-faint)"></i>Pendente</span>
+            <span><i style="background:var(--blue)"></i>Tem atividade marcada</span>
           </div>
           <div class="dow-row"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>
           <div class="cal-grid" id="calGrid"></div>
         </div>
-        <div class="side-panel">
-          <h3 id="sideDateLabel">Selecione um dia</h3>
-          <div class="sub" id="sideDateSub"></div>
-          <div class="side-add">
-            <input type="text" id="sideInput" placeholder="Nova atividade...">
-            <button id="sideAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button>
+        <div class="cal-side-col">
+          <div class="side-panel">
+            <h3 id="sideDateLabel">Selecione um dia</h3>
+            <div class="sub" id="sideDateSub"></div>
+            <div class="side-add">
+              <input type="text" id="sideInput" placeholder="Nova atividade...">
+              <button id="sideAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <button class="link-btn" id="sideDetailBtn" style="margin-top:0; margin-bottom:12px;">+ adicionar com detalhes</button>
+            <div class="task-list" id="sideList"></div>
           </div>
-          <button class="link-btn" id="sideDetailBtn" style="margin-top:0; margin-bottom:12px;">+ adicionar com detalhes</button>
-          <div class="task-list" id="sideList"></div>
+          <div class="side-panel">
+            <h3 style="text-transform:none;">Suas pendências</h3>
+            <div class="sub">Tudo que você anotou e ainda não confirmou, com a data</div>
+            <div class="task-list" id="pendingList"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -725,9 +734,8 @@ function lampSVG(lit){
       <line x1="37.5" y1="10.5" x2="34" y2="14"/><line x1="14" y1="34" x2="10.5" y2="37.5"/></g>` : '';
   return `${glow}${rays}<rect x="14" y="14" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2.3" fill="none"/><rect x="20.5" y="20.5" width="7" height="7" rx="1.4" fill="currentColor"/>`;
 }
-function miniLampSVG(state){
-  const litFlame = state !== 'off' ? `<rect x="8.6" y="8.6" width="3" height="3" rx=".6" fill="currentColor"/>` : `<rect x="8.6" y="8.6" width="3" height="3" rx=".6" fill="none" stroke="currentColor" stroke-width="1.2"/>`;
-  return `<rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/>${litFlame}`;
+function miniLampSVG(){
+  return `<rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/><rect x="8.6" y="8.6" width="3" height="3" rx=".6" fill="currentColor"/>`;
 }
 ['brandLampSvg','localLampSvg','authLampSvg','roomLampSvg'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=lampSVG(true); });
 
@@ -1102,7 +1110,7 @@ function startRoomListeners(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(!activities[d.date]) activities[d.date] = [];
-      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', priority:d.priority||'media', assignees:d.assignees||[], completions:d.completions||{} });
+      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, assignees:d.assignees||[], completions:d.completions||{} });
     });
     renderAll(); renderCalendar();
   }, err=>console.warn('Erro ao ler atividades:', err));
@@ -1653,18 +1661,21 @@ function renderCalendar(){
     const cell = document.createElement('div'); cell.className='day-cell';
     if(ds===tstr) cell.classList.add('today');
     if(ds===selectedDate) cell.classList.add('selected');
-    let lampState = 'off';
+    let lampState = null;
     if(list.length>0){
       const states = list.map(taskState);
       const allDone = states.every(s=>s.allDone);
       const anyProgress = states.some(s=>s.doneCount>0);
-      lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'off');
+      lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'pending');
     }
-    const lampWrap = document.createElement('div');
-    lampWrap.className = 'day-lamp' + (lampState==='lit'?' lit':lampState==='partial'?' partial':'');
-    lampWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="none">${miniLampSVG(lampState)}</svg>`;
     const num = document.createElement('div'); num.className='day-num'; num.textContent=day;
-    cell.appendChild(num); cell.appendChild(lampWrap);
+    cell.appendChild(num);
+    if(lampState){
+      const lampWrap = document.createElement('div');
+      lampWrap.className = 'day-lamp ' + lampState;
+      lampWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="none">${miniLampSVG()}</svg>`;
+      cell.appendChild(lampWrap);
+    }
     cell.addEventListener('click', ()=>{ selectedDate=ds; renderCalendar(); renderSidePanel(); });
     grid.appendChild(cell);
   }
@@ -1682,6 +1693,22 @@ function renderSidePanel(){
     if(da!==db) return da-db;
     return (a.time||'99:99').localeCompare(b.time||'99:99');
   }).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
+  renderPendingBox();
+}
+function renderPendingBox(){
+  const pendEl = document.getElementById('pendingList'); if(!pendEl) return;
+  const uid = myUid();
+  pendEl.innerHTML = '';
+  const dates = Object.keys(activities).filter(ds=>ds>=todayStr()).sort();
+  let any = false;
+  dates.forEach(ds=>{
+    activities[ds].filter(t=>{
+      const st = taskState(t);
+      return st.assignees.some(a=>a.uid===uid) && !st.completions[uid];
+    }).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'))
+      .forEach(t=>{ pendEl.appendChild(taskRow(ds, t, {showDate:true})); any = true; });
+  });
+  if(!any) pendEl.appendChild(emptyMsg('Nenhuma pendência sua daqui pra frente ✦'));
 }
 document.getElementById('sideAddBtn').addEventListener('click', ()=>{
   const input=document.getElementById('sideInput'); const text=input.value.trim(); if(!text) return;
