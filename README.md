@@ -142,7 +142,9 @@ service cloud.firestore {
         allow read: if request.auth != null;
         allow create: if request.auth != null
                        && request.resource.data.creatorUid == request.auth.uid;
-        allow update, delete: if request.auth != null;
+        allow update, delete: if request.auth != null
+                               && (resource.data.assignees.size() > 1
+                                   || resource.data.creatorUid == request.auth.uid);
       }
     }
   }
@@ -164,9 +166,13 @@ O que isso significa, em resumo:
   dono — a regra em si confia no grupo pequeno, como já acontece com
   as atividades.
 - Toda atividade precisa nascer com o `creatorUid` de quem está logado.
-- Qualquer membro autenticado pode atualizar (marcar sua parte) ou
-  apagar qualquer atividade da sala — de propósito, para permitir
-  colaboração livre num grupo pequeno de confiança.
+- **Atividades com mais de uma pessoa** (grupo) continuam abertas para
+  qualquer membro autenticado editar/apagar — colaboração livre, de
+  propósito. **Atividades individuais** (só uma pessoa participando)
+  agora só podem ser editadas/apagadas por quem criou — tanto no app
+  quanto aqui nas regras (antes só o app escondia o botão; agora o
+  Firestore também recusa a escrita, então nem chamando a API
+  diretamente dá pra mexer na tarefa de outra pessoa).
 
 **Sobre a senha de salas privadas:** ela fica salva como texto simples
 no documento da sala e funciona como uma barreira leve para impedir

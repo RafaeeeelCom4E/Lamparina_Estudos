@@ -318,6 +318,13 @@ body::before{
 @media (max-width:480px){
   .stat-grid{grid-template-columns:1fr 1fr;}
   .legend{font-size:10.5px; gap:10px;}
+  .overlay{padding:12px; align-items:flex-start; padding-top:40px;}
+  .login-card{padding:24px 18px; max-width:100%;}
+  .stack-mobile{flex-direction:column; gap:0 !important;}
+  .task-date{order:5;}
+  .rc-actions{flex-direction:column;}
+  .room-banner > div:last-child{width:100%;}
+  .room-banner > div:last-child .btn{flex:1;}
 }
 </style>
 </head>
@@ -494,7 +501,7 @@ body::before{
     <div class="auth-error" id="taskError"></div>
     <div class="field"><label>Título</label><input type="text" id="taskTitleInput" placeholder="ex: Trabalho de História" maxlength="80"></div>
     <div class="field"><label>Descrição (opcional)</label><textarea id="taskDescInput" rows="3" placeholder="Detalhes, links, o que precisa ser feito..."></textarea></div>
-    <div style="display:flex; gap:10px;">
+    <div class="stack-mobile" style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Data</label><input type="date" id="taskDateInput"></div>
       <div class="field" style="flex:1;"><label>Horário (opcional)</label><input type="time" id="taskTimeInput"></div>
     </div>
@@ -536,6 +543,30 @@ body::before{
   </div>
 </div>
 
+<!-- DETALHES DA ATIVIDADE (visualização) -->
+<div class="overlay" id="taskDetailOverlay" style="display:none; z-index:54;">
+  <div class="login-card" style="max-width:440px; text-align:left;">
+    <button class="modal-close" id="taskDetailCloseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+      <span class="prio-dot" id="tdPrioDot" style="width:9px; height:9px;"></span>
+      <h2 id="tdTitle" style="text-align:left; margin-bottom:0;">—</h2>
+    </div>
+    <div class="rc-meta" id="tdMeta" style="margin-top:10px;"></div>
+    <div id="tdDescWrap" style="margin-top:14px;">
+      <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Descrição</div>
+      <p id="tdDesc" style="text-align:left; margin-bottom:0; white-space:pre-wrap; line-height:1.6;"></p>
+    </div>
+    <div id="tdAssigneesWrap" style="margin-top:16px; display:none;">
+      <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Participantes</div>
+      <div id="tdAssigneesList" class="assignees-list"></div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:20px;">
+      <button class="btn btn-ghost" id="tdCloseBtn2" style="flex:1; justify-content:center;">Fechar</button>
+      <button class="btn" id="tdEditBtn" style="flex:1; justify-content:center; display:none;">Editar</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIRMAÇÃO -->
 <div class="overlay" id="confirmOverlay" style="display:none; z-index:60;">
   <div class="login-card" style="max-width:340px;">
@@ -549,9 +580,8 @@ body::before{
   </div>
 </div>
 
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
 <div class="app">
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
     <div class="brand">
       <svg class="lamp-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" id="brandLampSvg"></svg>
@@ -1114,7 +1144,7 @@ function startRoomListeners(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(!activities[d.date]) activities[d.date] = [];
-      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, assignees:d.assignees||[], completions:d.completions||{} });
+      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
     });
     renderAll(); renderCalendar();
   }, err=>console.warn('Erro ao ler atividades:', err));
@@ -1368,6 +1398,12 @@ function taskState(t){
   const doneCount = assignees.filter(a=>completions[a.uid]).length;
   return { assignees, completions, doneCount, total: assignees.length, allDone: doneCount>0 && doneCount===assignees.length };
 }
+function canManageTask(t){
+  const st = taskState(t);
+  if(st.assignees.length > 1) return true; // atividade em grupo: qualquer participante da sala pode gerenciar
+  if(!t.creatorUid) return true; // dado antigo sem essa informação: não trava
+  return t.creatorUid === myUid();
+}
 function priorityMeta(p){
   return { baixa:{label:'Baixa',color:'var(--green)'}, media:{label:'Média',color:'var(--yellow)'}, alta:{label:'Alta',color:'var(--red)'} }[p] || { label:'Média', color:'var(--yellow)' };
 }
@@ -1381,7 +1417,7 @@ function createActivity(payload){
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
-    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, assignees:payload.assignees, completions });
+    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1397,7 +1433,7 @@ function updateActivity(dateStr, id, payload, oldActivity){
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     if(!activities[payload.date]) activities[payload.date] = [];
-    activities[payload.date].push({ id, text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, assignees:payload.assignees, completions });
+    activities[payload.date].push({ id, text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1454,6 +1490,50 @@ function toggleOwnCompletion(dateStr, id){
 let editingTask = null;
 let modalPriority = 'media';
 let selectedWeekdays = new Set();
+function openTaskDetail(dateStr, t){
+  const st = taskState(t);
+  const prio = priorityMeta(t.priority);
+  document.getElementById('tdPrioDot').style.background = prio.color;
+  document.getElementById('tdTitle').textContent = t.text;
+
+  const metaEl = document.getElementById('tdMeta'); metaEl.innerHTML = '';
+  function pill(text){ const s=document.createElement('span'); s.className='vis-pill'; s.textContent=text; metaEl.appendChild(s); }
+  pill(dateLabelShort(dateStr));
+  if(t.time) pill('🕒 ' + t.time);
+  pill(prio.label + ' prioridade');
+  if(t.recurrenceId) pill('↻ recorrente');
+
+  const descWrap = document.getElementById('tdDescWrap');
+  if(t.description){ descWrap.style.display = 'block'; document.getElementById('tdDesc').textContent = t.description; }
+  else { descWrap.style.display = 'none'; }
+
+  const isGroup = st.assignees.length > 1;
+  const assigneesWrap = document.getElementById('tdAssigneesWrap');
+  if(isGroup){
+    assigneesWrap.style.display = 'block';
+    const list = document.getElementById('tdAssigneesList'); list.innerHTML = '';
+    st.assignees.forEach(a=>{
+      const nm = (members[a.uid] && members[a.uid].name) || a.name || '?';
+      const done = !!st.completions[a.uid];
+      const row = document.createElement('div'); row.className = 'assignee-row'; row.style.cursor = 'default';
+      row.innerHTML = `<span style="color:${done ? 'var(--accent)' : 'var(--text-faint)'}; font-weight:700;">${done ? '✓' : '○'}</span><span>${nm}${done ? ' — confirmou' : ' — pendente'}</span>`;
+      list.appendChild(row);
+    });
+  } else {
+    assigneesWrap.style.display = 'none';
+  }
+
+  const editBtn = document.getElementById('tdEditBtn');
+  if(canManageTask(t)){
+    editBtn.style.display = 'flex';
+    editBtn.onclick = ()=>{ document.getElementById('taskDetailOverlay').style.display = 'none'; openTaskModal({ mode:'edit', dateStr, activity:t }); };
+  } else {
+    editBtn.style.display = 'none';
+  }
+  document.getElementById('taskDetailOverlay').style.display = 'flex';
+}
+document.getElementById('taskDetailCloseBtn').addEventListener('click', ()=> document.getElementById('taskDetailOverlay').style.display = 'none');
+document.getElementById('tdCloseBtn2').addEventListener('click', ()=> document.getElementById('taskDetailOverlay').style.display = 'none');
 function openTaskModal(opts){
   editingTask = opts.mode==='edit' ? opts : null;
   document.getElementById('taskModalTitle').textContent = opts.mode==='edit' ? 'Editar atividade' : 'Nova atividade';
@@ -1579,6 +1659,7 @@ function taskRow(dateStr, t, opts={}){
   if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
   else if(t.description) subHtml = `<div class="task-sub">📝 ${(t.description.length>60 ? t.description.slice(0,60)+'…' : t.description)}</div>`;
 
+  const canManage = canManageTask(t);
   el.innerHTML = `
     <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade'}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
     <div class="task-main">
@@ -1586,14 +1667,16 @@ function taskRow(dateStr, t, opts={}){
       ${subHtml}
     </div>
     ${opts.showDate ? `<div class="task-date">${dateLabelShort(dateStr)}</div>` : ''}
-    <button class="task-edit" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
-    <button class="task-del" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    ${canManage ? `<button class="task-edit" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>` : ''}
+    ${canManage ? `<button class="task-del" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : ''}
   `;
   el.querySelector('.task-text').textContent = t.text;
   el.querySelector('.check').addEventListener('click', ()=>{ if(iAmAssignee) toggleOwnCompletion(dateStr, t.id); });
-  el.querySelector('.task-main').addEventListener('click', ()=> openTaskModal({ mode:'edit', dateStr, activity:t }));
-  el.querySelector('.task-edit').addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal({ mode:'edit', dateStr, activity:t }); });
-  el.querySelector('.task-del').addEventListener('click', (e)=>{
+  el.querySelector('.task-main').addEventListener('click', ()=> openTaskDetail(dateStr, t));
+  const editBtn = el.querySelector('.task-edit');
+  if(editBtn) editBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal({ mode:'edit', dateStr, activity:t }); });
+  const delBtn = el.querySelector('.task-del');
+  if(delBtn) delBtn.addEventListener('click', (e)=>{
     e.stopPropagation();
     confirmDeleteTask(dateStr, t);
   });
