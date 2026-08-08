@@ -272,12 +272,17 @@ trate como segurança forte.
   é uma boa próxima etapa; por enquanto a cor do avatar já ajuda a
   diferenciar cada pessoa visualmente nas listas e no ranking.
 
+## Novidades desta etapa
+
+- **Atividades atrasadas**: data passou e ninguém confirmou vira
+  vermelho (lamparina no calendário e borda na lista de atividades).
+- **Link/anexo na atividade**: campo opcional no modal, aparece com
+  botão "Abrir link" na tela de detalhes.
+- **Convite por link**: botão "Copiar convite" na aba Equipe gera um
+  link (`?sala=codigo`) que já pré-preenche o código pra quem abrir.
+
 ## Próxima etapa sugerida
 
-- Upload de foto de perfil real (requer Firebase Storage).
-- Notificação visual de atividades atrasadas (data passou e ainda não
-  foi concluída por todo mundo).
-- Busca/filtro por prioridade na aba Atividades.
-- Exportar/importar dados do modo local para uma conta na nuvem.
-- Editar uma atividade recorrente e propagar a mudança para as
-  próximas ocorrências (hoje, editar só muda aquele dia específico).
+- Comentários por atividade, estatísticas da sala, notificações,
+  editar série recorrente propagando pras próximas, modo offline de
+  verdade, exportar semana, upload de foto real.

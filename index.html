@@ -170,6 +170,7 @@ body::before{
 .task:hover{background:var(--bg-card-hover);}
 .task.done{opacity:.6;}
 .task.partial{border-left:3px solid var(--yellow);}
+.task.task-overdue{border-left:3px solid var(--red);}
 .check{width:20px; height:20px; border-radius:6px; border:1.6px solid var(--text-faint); flex:none; margin-top:1px; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s var(--ease);}
 .check svg{width:12px; height:12px; opacity:0; transition:opacity .1s;}
 .check.mine-checked{background:var(--accent); border-color:var(--accent);}
@@ -220,6 +221,7 @@ body::before{
 .day-lamp.lit{color:var(--accent); opacity:1; filter:drop-shadow(0 0 4px var(--accent));}
 .day-lamp.partial{color:var(--yellow); opacity:.9;}
 .day-lamp.pending{color:var(--blue); opacity:.95;}
+.day-lamp.overdue{color:var(--red); opacity:1;}
 
 .cal-side-col{display:flex; flex-direction:column; gap:18px; position:sticky; top:20px;}
 .side-panel{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px;}
@@ -501,6 +503,7 @@ body::before{
     <div class="auth-error" id="taskError"></div>
     <div class="field"><label>Título</label><input type="text" id="taskTitleInput" placeholder="ex: Trabalho de História" maxlength="80"></div>
     <div class="field"><label>Descrição (opcional)</label><textarea id="taskDescInput" rows="3" placeholder="Detalhes, links, o que precisa ser feito..."></textarea></div>
+    <div class="field"><label>Link (opcional)</label><input type="url" id="taskLinkInput" placeholder="https://..."></div>
     <div class="stack-mobile" style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Data</label><input type="date" id="taskDateInput"></div>
       <div class="field" style="flex:1;"><label>Horário (opcional)</label><input type="time" id="taskTimeInput"></div>
@@ -555,6 +558,9 @@ body::before{
     <div id="tdDescWrap" style="margin-top:14px;">
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Descrição</div>
       <p id="tdDesc" style="text-align:left; margin-bottom:0; white-space:pre-wrap; line-height:1.6;"></p>
+    </div>
+    <div id="tdLinkWrap" style="margin-top:14px; display:none;">
+      <a id="tdLinkAnchor" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="width:100%; justify-content:center;">🔗 Abrir link</a>
     </div>
     <div id="tdAssigneesWrap" style="margin-top:16px; display:none;">
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Participantes</div>
@@ -679,6 +685,7 @@ body::before{
             <span><i style="background:var(--accent)"></i>Lamparina acesa = tudo concluído</span>
             <span><i style="background:var(--yellow)"></i>Parcial</span>
             <span><i style="background:var(--blue)"></i>Tem atividade marcada</span>
+            <span><i style="background:var(--red)"></i>Atrasada</span>
           </div>
           <div class="dow-row"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>
           <div class="cal-grid" id="calGrid"></div>
@@ -732,6 +739,7 @@ body::before{
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-ghost" id="editRoomBtn" style="display:none;">Editar sala</button>
+            <button class="btn btn-ghost" id="copyInviteBtn">Copiar convite</button>
             <button class="btn btn-ghost" id="changeRoomBtn">Trocar de sala</button>
           </div>
         </div>
@@ -983,9 +991,33 @@ function openRoomOverlay(){
   } else {
     document.getElementById('roomCurrentBox').style.display = 'none';
     document.getElementById('roomPickerBox').style.display = 'block';
+    const inviteCode = getInviteCodeFromURL();
+    if(inviteCode){
+      document.querySelectorAll('#roomTabs .auth-tab').forEach(t=>t.classList.toggle('active', t.dataset.rtab==='entrar'));
+      document.getElementById('roomTabCriar').style.display = 'none';
+      document.getElementById('roomTabEntrar').style.display = 'block';
+      document.getElementById('roomTabPublicas').style.display = 'none';
+      document.getElementById('joinCodeInput').value = inviteCode;
+      history.replaceState(null, '', location.pathname);
+    }
   }
   document.getElementById('roomOverlay').style.display = 'flex';
 }
+function getInviteCodeFromURL(){
+  try{ return new URLSearchParams(window.location.search).get('sala'); }catch(e){ return null; }
+}
+document.getElementById('copyInviteBtn').addEventListener('click', async ()=>{
+  if(!currentRoom) return;
+  const url = location.origin + location.pathname + '?sala=' + encodeURIComponent(currentRoom.id);
+  const btn = document.getElementById('copyInviteBtn');
+  try{
+    await navigator.clipboard.writeText(url);
+    btn.textContent = 'Copiado!';
+  }catch(e){
+    prompt('Copie o link de convite:', url);
+  }
+  setTimeout(()=>{ btn.textContent = 'Copiar convite'; }, 1800);
+});
 document.getElementById('roomCloseBtn').addEventListener('click', ()=> document.getElementById('roomOverlay').style.display='none');
 document.getElementById('rcCloseBtn').addEventListener('click', ()=> document.getElementById('roomOverlay').style.display='none');
 document.getElementById('roomChip').addEventListener('click', ()=>{ if(CLOUD_ENABLED) openRoomOverlay(); });
@@ -1144,7 +1176,7 @@ function startRoomListeners(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(!activities[d.date]) activities[d.date] = [];
-      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
+      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', link:d.link||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
     });
     renderAll(); renderCalendar();
   }, err=>console.warn('Erro ao ler atividades:', err));
@@ -1417,7 +1449,7 @@ function createActivity(payload){
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
-    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
+    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1427,13 +1459,13 @@ function updateActivity(dateStr, id, payload, oldActivity){
   payload.assignees.forEach(a=> completions[a.uid] = oldCompletions[a.uid] || false);
   if(CLOUD_ENABLED && currentRoom){
     db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({
-      text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
+      text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
     }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     if(!activities[payload.date]) activities[payload.date] = [];
-    activities[payload.date].push({ id, text:payload.text, description:payload.description, priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
+    activities[payload.date].push({ id, text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1507,6 +1539,10 @@ function openTaskDetail(dateStr, t){
   if(t.description){ descWrap.style.display = 'block'; document.getElementById('tdDesc').textContent = t.description; }
   else { descWrap.style.display = 'none'; }
 
+  const linkWrap = document.getElementById('tdLinkWrap');
+  if(t.link){ linkWrap.style.display = 'block'; document.getElementById('tdLinkAnchor').href = t.link; }
+  else { linkWrap.style.display = 'none'; }
+
   const isGroup = st.assignees.length > 1;
   const assigneesWrap = document.getElementById('tdAssigneesWrap');
   if(isGroup){
@@ -1541,6 +1577,7 @@ function openTaskModal(opts){
   const t = opts.activity;
   document.getElementById('taskTitleInput').value = t ? t.text : '';
   document.getElementById('taskDescInput').value = t ? (t.description||'') : '';
+  document.getElementById('taskLinkInput').value = t ? (t.link||'') : '';
   document.getElementById('taskDateInput').value = t ? (t.date || opts.dateStr) : (opts.dateStr || todayStr());
   document.getElementById('taskTimeInput').value = t ? (t.time||'') : '';
   modalPriority = t ? (t.priority||'media') : 'media';
@@ -1598,6 +1635,7 @@ function datesForRecurrence(startDateStr, weekdaySet, untilStr){
 document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
   const title = document.getElementById('taskTitleInput').value.trim();
   const desc = document.getElementById('taskDescInput').value.trim();
+  const linkVal = document.getElementById('taskLinkInput').value.trim();
   const dateStr = document.getElementById('taskDateInput').value || todayStr();
   const timeStr = document.getElementById('taskTimeInput').value || '';
   if(!title){ showErr('taskError','Digite um título.'); return; }
@@ -1619,10 +1657,10 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
     if(dates.length===0){ showErr('taskError','Nenhuma data cai nos dias escolhidos dentro desse período.'); return; }
     const recurrenceId = 'rec_' + Date.now() + '_' + Math.random().toString(16).slice(2);
     dates.forEach(ds=>{
-      createActivity({ text:title, description:desc, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
+      createActivity({ text:title, description:desc, link:linkVal, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
     });
   } else {
-    const payload = { text:title, description:desc, priority:modalPriority, time:timeStr, date:dateStr, assignees };
+    const payload = { text:title, description:desc, link:linkVal, priority:modalPriority, time:timeStr, date:dateStr, assignees };
     if(editingTask) updateActivity(editingTask.dateStr, editingTask.activity.id, payload, editingTask.activity);
     else createActivity(payload);
   }
@@ -1648,10 +1686,11 @@ function taskRow(dateStr, t, opts={}){
   const myDone = !!st.completions[uid];
   const isGroup = st.assignees.length > 1;
   const partial = !st.allDone && st.doneCount > 0;
+  const isOverdue = !st.allDone && dateStr < todayStr();
   const prio = priorityMeta(t.priority);
 
   const el = document.createElement('div');
-  el.className = 'task' + (st.allDone ? ' done' : '') + (partial ? ' partial' : '');
+  el.className = 'task' + (st.allDone ? ' done' : '') + (isOverdue ? ' task-overdue' : (partial ? ' partial' : ''));
 
   function liveName(a){ return (members[a.uid] && members[a.uid].name) || a.name || '?'; }
   const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const hex=AVATAR_COLORS[col]; const style = hex ? ` style="background:${hex}26;color:${hex}"` : ''; return `<div class="avatar sm"${style} title="${nm}">${nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
@@ -1663,10 +1702,10 @@ function taskRow(dateStr, t, opts={}){
   el.innerHTML = `
     <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade'}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
     <div class="task-main">
-      <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}</div>
+      <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}${t.link ? '<span title="Tem link anexado" style="color:var(--text-faint); font-size:12px;">🔗</span>' : ''}</div>
       ${subHtml}
     </div>
-    ${opts.showDate ? `<div class="task-date">${dateLabelShort(dateStr)}</div>` : ''}
+    ${opts.showDate ? `<div class="task-date"${isOverdue ? ' style="color:var(--red); border-color:var(--red);"' : ''}>${dateLabelShort(dateStr)}</div>` : ''}
     ${canManage ? `<button class="task-edit" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>` : ''}
     ${canManage ? `<button class="task-del" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : ''}
   `;
@@ -1777,6 +1816,7 @@ function updateCalendarCellStates(){
       const allDone = states.every(s=>s.allDone);
       const anyProgress = states.some(s=>s.doneCount>0);
       lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'pending');
+      if(lampState!=='lit' && ds<tstr) lampState = 'overdue';
       const prios = list.map(t=>t.priority||'media');
       topPrio = prios.includes('alta') ? 'alta' : (prios.includes('media') ? 'media' : 'baixa');
     }
