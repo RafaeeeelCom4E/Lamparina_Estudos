@@ -503,7 +503,11 @@ body::before{
     <div class="auth-error" id="taskError"></div>
     <div class="field"><label>Título</label><input type="text" id="taskTitleInput" placeholder="ex: Trabalho de História" maxlength="80"></div>
     <div class="field"><label>Descrição (opcional)</label><textarea id="taskDescInput" rows="3" placeholder="Detalhes, links, o que precisa ser feito..."></textarea></div>
-    <div class="field"><label>Link (opcional)</label><input type="url" id="taskLinkInput" placeholder="https://..."></div>
+    <div class="field">
+      <label>Links (opcional)</label>
+      <div class="side-add"><input type="text" id="taskLinkInput" placeholder="ex: youtube.com/... ou https://..."><button type="button" id="taskLinkAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+      <div id="taskLinksList" class="assignees-list" style="margin-top:8px;"></div>
+    </div>
     <div class="stack-mobile" style="display:flex; gap:10px;">
       <div class="field" style="flex:1;"><label>Data</label><input type="date" id="taskDateInput"></div>
       <div class="field" style="flex:1;"><label>Horário (opcional)</label><input type="time" id="taskTimeInput"></div>
@@ -560,7 +564,8 @@ body::before{
       <p id="tdDesc" style="text-align:left; margin-bottom:0; white-space:pre-wrap; line-height:1.6;"></p>
     </div>
     <div id="tdLinkWrap" style="margin-top:14px; display:none;">
-      <a id="tdLinkAnchor" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="width:100%; justify-content:center;">🔗 Abrir link</a>
+      <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Links</div>
+      <div id="tdLinksList" class="assignees-list"></div>
     </div>
     <div id="tdAssigneesWrap" style="margin-top:16px; display:none;">
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Participantes</div>
@@ -847,6 +852,7 @@ let unsubActivities=null, unsubMembers=null, unsubRoomDoc=null;
 let sawSelfInRoom = false;
 let secretRevealed = false;
 let dayCellRefs = {};
+let modalLinks = [];
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -1176,7 +1182,7 @@ function startRoomListeners(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(!activities[d.date]) activities[d.date] = [];
-      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', link:d.link||'', priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
+      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', links:d.links||(d.link?[d.link]:[]), priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
     });
     renderAll(); renderCalendar();
   }, err=>console.warn('Erro ao ler atividades:', err));
@@ -1449,7 +1455,7 @@ function createActivity(payload){
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
-    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
+    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1459,13 +1465,13 @@ function updateActivity(dateStr, id, payload, oldActivity){
   payload.assignees.forEach(a=> completions[a.uid] = oldCompletions[a.uid] || false);
   if(CLOUD_ENABLED && currentRoom){
     db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({
-      text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
+      text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
     }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     if(!activities[payload.date]) activities[payload.date] = [];
-    activities[payload.date].push({ id, text:payload.text, description:payload.description, link:payload.link||'', priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
+    activities[payload.date].push({ id, text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1522,6 +1528,17 @@ function toggleOwnCompletion(dateStr, id){
 let editingTask = null;
 let modalPriority = 'media';
 let selectedWeekdays = new Set();
+function normalizeUrl(u){
+  u = (u||'').trim();
+  if(!u) return '';
+  if(!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+function getActivityLinks(t){
+  if(t.links && t.links.length) return t.links;
+  if(t.link) return [t.link];
+  return [];
+}
 function openTaskDetail(dateStr, t){
   const st = taskState(t);
   const prio = priorityMeta(t.priority);
@@ -1539,9 +1556,21 @@ function openTaskDetail(dateStr, t){
   if(t.description){ descWrap.style.display = 'block'; document.getElementById('tdDesc').textContent = t.description; }
   else { descWrap.style.display = 'none'; }
 
+  const links = getActivityLinks(t);
   const linkWrap = document.getElementById('tdLinkWrap');
-  if(t.link){ linkWrap.style.display = 'block'; document.getElementById('tdLinkAnchor').href = t.link; }
-  else { linkWrap.style.display = 'none'; }
+  if(links.length){
+    linkWrap.style.display = 'block';
+    const linksList = document.getElementById('tdLinksList'); linksList.innerHTML = '';
+    links.forEach(url=>{
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.className = 'assignee-row'; a.style.cssText = 'text-decoration:none; color:var(--text); justify-content:space-between;';
+      a.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🔗 ${url.replace(/^https?:\/\//,'')}</span><span style="color:var(--text-faint); flex:none;">↗</span>`;
+      linksList.appendChild(a);
+    });
+  } else {
+    linkWrap.style.display = 'none';
+  }
 
   const isGroup = st.assignees.length > 1;
   const assigneesWrap = document.getElementById('tdAssigneesWrap');
@@ -1577,7 +1606,9 @@ function openTaskModal(opts){
   const t = opts.activity;
   document.getElementById('taskTitleInput').value = t ? t.text : '';
   document.getElementById('taskDescInput').value = t ? (t.description||'') : '';
-  document.getElementById('taskLinkInput').value = t ? (t.link||'') : '';
+  modalLinks = t ? getActivityLinks(t).slice() : [];
+  document.getElementById('taskLinkInput').value = '';
+  renderModalLinksList();
   document.getElementById('taskDateInput').value = t ? (t.date || opts.dateStr) : (opts.dateStr || todayStr());
   document.getElementById('taskTimeInput').value = t ? (t.time||'') : '';
   modalPriority = t ? (t.priority||'media') : 'media';
@@ -1606,6 +1637,28 @@ function openTaskModal(opts){
   document.getElementById('taskOverlay').style.display = 'flex';
 }
 function closeTaskModal(){ document.getElementById('taskOverlay').style.display = 'none'; editingTask = null; }
+function renderModalLinksList(){
+  const list = document.getElementById('taskLinksList'); list.innerHTML = '';
+  modalLinks.forEach((url, i)=>{
+    const row = document.createElement('div'); row.className = 'assignee-row'; row.style.cursor = 'default'; row.style.justifyContent = 'space-between';
+    row.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🔗 ${url.replace(/^https?:\/\//,'')}</span>`;
+    const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'icon-btn'; rm.style.flex = 'none';
+    rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    rm.addEventListener('click', ()=>{ modalLinks.splice(i,1); renderModalLinksList(); });
+    row.appendChild(rm);
+    list.appendChild(row);
+  });
+}
+function addModalLink(){
+  const input = document.getElementById('taskLinkInput');
+  const url = normalizeUrl(input.value);
+  if(!url) return;
+  modalLinks.push(url);
+  input.value = '';
+  renderModalLinksList();
+}
+document.getElementById('taskLinkAddBtn').addEventListener('click', addModalLink);
+document.getElementById('taskLinkInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addModalLink(); } });
 document.getElementById('taskCloseBtn').addEventListener('click', closeTaskModal);
 document.getElementById('taskCancelBtn').addEventListener('click', closeTaskModal);
 document.querySelectorAll('.prio-btn').forEach(b=>{
@@ -1635,7 +1688,8 @@ function datesForRecurrence(startDateStr, weekdaySet, untilStr){
 document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
   const title = document.getElementById('taskTitleInput').value.trim();
   const desc = document.getElementById('taskDescInput').value.trim();
-  const linkVal = document.getElementById('taskLinkInput').value.trim();
+  const pendingLink = normalizeUrl(document.getElementById('taskLinkInput').value);
+  const links = pendingLink ? modalLinks.concat([pendingLink]) : modalLinks.slice();
   const dateStr = document.getElementById('taskDateInput').value || todayStr();
   const timeStr = document.getElementById('taskTimeInput').value || '';
   if(!title){ showErr('taskError','Digite um título.'); return; }
@@ -1657,10 +1711,10 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
     if(dates.length===0){ showErr('taskError','Nenhuma data cai nos dias escolhidos dentro desse período.'); return; }
     const recurrenceId = 'rec_' + Date.now() + '_' + Math.random().toString(16).slice(2);
     dates.forEach(ds=>{
-      createActivity({ text:title, description:desc, link:linkVal, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
+      createActivity({ text:title, description:desc, links, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
     });
   } else {
-    const payload = { text:title, description:desc, link:linkVal, priority:modalPriority, time:timeStr, date:dateStr, assignees };
+    const payload = { text:title, description:desc, links, priority:modalPriority, time:timeStr, date:dateStr, assignees };
     if(editingTask) updateActivity(editingTask.dateStr, editingTask.activity.id, payload, editingTask.activity);
     else createActivity(payload);
   }
@@ -1702,7 +1756,7 @@ function taskRow(dateStr, t, opts={}){
   el.innerHTML = `
     <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade'}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
     <div class="task-main">
-      <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}${t.link ? '<span title="Tem link anexado" style="color:var(--text-faint); font-size:12px;">🔗</span>' : ''}</div>
+      <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}${getActivityLinks(t).length ? `<span title="${getActivityLinks(t).length} link(s) anexado(s)" style="color:var(--text-faint); font-size:12px;">🔗${getActivityLinks(t).length>1?' '+getActivityLinks(t).length:''}</span>` : ''}</div>
       ${subHtml}
     </div>
     ${opts.showDate ? `<div class="task-date"${isOverdue ? ' style="color:var(--red); border-color:var(--red);"' : ''}>${dateLabelShort(dateStr)}</div>` : ''}
