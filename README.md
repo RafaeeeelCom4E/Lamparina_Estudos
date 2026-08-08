@@ -23,6 +23,21 @@ isso abre o instalador nativo do navegador; no iPhone/iPad (Safari não
 tem esse recurso) o botão mostra o passo a passo — toque no ícone de
 Compartilhar e escolha "Adicionar à Tela de Início".
 
+## ⚠️ App instalado ficava "travado" numa versão antiga
+
+Se o app instalado no celular estava se comportando diferente do site
+aberto no navegador (por exemplo, o menu não abria direito num mas
+abria no outro): o `service-worker.js` usava uma estratégia de cache
+que guardava a primeira versão do site vista e nunca mais buscava uma
+atualizada — o app instalado congelava numa versão antiga para
+sempre, mesmo depois de várias atualizações no site. Corrigido nesta
+versão (agora ele sempre busca a versão mais nova quando há internet,
+só usando o cache se estiver offline).
+
+Depois de publicar esta atualização, feche e abra o app instalado de
+novo. Se ainda parecer o mesmo bug, desinstale e instale de novo pra
+garantir — isso força a limpeza do cache antigo.
+
 ## ⚠️ "Uncaught ReferenceError: Cannot access '...' before initialization"
 
 Se você viu esse erro no console (mencionando `AVATAR_COLORS` ou algo
