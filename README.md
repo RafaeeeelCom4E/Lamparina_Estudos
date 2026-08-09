@@ -160,6 +160,12 @@ service cloud.firestore {
         allow update, delete: if request.auth != null
                                && (resource.data.assignees.size() > 1
                                    || resource.data.creatorUid == request.auth.uid);
+
+        match /comments/{commentId} {
+          allow read: if request.auth != null;
+          allow create: if request.auth != null
+                         && request.resource.data.uid == request.auth.uid;
+        }
       }
     }
   }
@@ -274,15 +280,19 @@ trate como segurança forte.
 
 ## Novidades desta etapa
 
-- **Atividades atrasadas**: data passou e ninguém confirmou vira
-  vermelho (lamparina no calendário e borda na lista de atividades).
-- **Link/anexo na atividade**: campo opcional no modal, aparece com
-  botão "Abrir link" na tela de detalhes.
-- **Convite por link**: botão "Copiar convite" na aba Equipe gera um
-  link (`?sala=codigo`) que já pré-preenche o código pra quem abrir.
+- **Comentários por atividade**: na tela de detalhes, dá pra escrever
+  e ver comentários de quem participa da sala (tipo um mini chat por
+  tarefa) — em tempo real quando em sala compartilhada.
+- **Estatísticas da sala**: barrinha de % concluído por dia, últimos
+  7 dias, na aba Equipe.
+- **Editar série recorrente**: ao editar uma atividade que se repete,
+  agora pergunta se a mudança vale só pra aquele dia ou pra esse e os
+  próximos da série.
+
+⚠️ Regras do Firestore mudaram de novo (comentários) — precisa
+republicar.
 
 ## Próxima etapa sugerida
 
-- Comentários por atividade, estatísticas da sala, notificações,
-  editar série recorrente propagando pras próximas, modo offline de
-  verdade, exportar semana, upload de foto real.
+- Notificações, modo offline de verdade, exportar semana em PDF,
+  upload de foto de perfil real.

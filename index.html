@@ -571,6 +571,14 @@ body::before{
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Participantes</div>
       <div id="tdAssigneesList" class="assignees-list"></div>
     </div>
+    <div id="tdCommentsWrap" style="margin-top:16px;">
+      <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Comentários</div>
+      <div id="tdCommentsList" style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow:auto; margin-bottom:10px;"></div>
+      <div class="side-add">
+        <input type="text" id="tdCommentInput" placeholder="Escreva um comentário...">
+        <button id="tdCommentSendBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+    </div>
     <div style="display:flex; gap:8px; margin-top:20px;">
       <button class="btn btn-ghost" id="tdCloseBtn2" style="flex:1; justify-content:center;">Fechar</button>
       <button class="btn" id="tdEditBtn" style="flex:1; justify-content:center; display:none;">Editar</button>
@@ -750,6 +758,8 @@ body::before{
         </div>
         <div class="section-title"><h2>Ranking da equipe</h2></div>
         <div id="leaderboard"></div>
+        <div class="section-title"><h2>Estatísticas da semana</h2></div>
+        <div class="cal-card" id="roomStatsBox" style="margin-bottom:8px;"></div>
         <div class="section-title"><h2>Gerenciar sala</h2></div>
         <div id="manageRoomBox"></div>
         <button class="btn btn-danger" id="roomDangerBtn" style="margin-top:6px;">Sair da sala</button>
@@ -853,6 +863,8 @@ let sawSelfInRoom = false;
 let secretRevealed = false;
 let dayCellRefs = {};
 let modalLinks = [];
+let unsubComments = null;
+let currentDetailTask = null;
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -1540,11 +1552,11 @@ function getActivityLinks(t){
   return [];
 }
 function openTaskDetail(dateStr, t){
+  currentDetailTask = { dateStr, activity: t };
   const st = taskState(t);
   const prio = priorityMeta(t.priority);
   document.getElementById('tdPrioDot').style.background = prio.color;
   document.getElementById('tdTitle').textContent = t.text;
-
   const metaEl = document.getElementById('tdMeta'); metaEl.innerHTML = '';
   function pill(text){ const s=document.createElement('span'); s.className='vis-pill'; s.textContent=text; metaEl.appendChild(s); }
   pill(dateLabelShort(dateStr));
@@ -1591,14 +1603,84 @@ function openTaskDetail(dateStr, t){
   const editBtn = document.getElementById('tdEditBtn');
   if(canManageTask(t)){
     editBtn.style.display = 'flex';
-    editBtn.onclick = ()=>{ document.getElementById('taskDetailOverlay').style.display = 'none'; openTaskModal({ mode:'edit', dateStr, activity:t }); };
+    editBtn.onclick = ()=>{ closeTaskDetail(); openTaskModal({ mode:'edit', dateStr, activity:t }); };
   } else {
     editBtn.style.display = 'none';
   }
+  renderTdComments();
   document.getElementById('taskDetailOverlay').style.display = 'flex';
 }
-document.getElementById('taskDetailCloseBtn').addEventListener('click', ()=> document.getElementById('taskDetailOverlay').style.display = 'none');
-document.getElementById('tdCloseBtn2').addEventListener('click', ()=> document.getElementById('taskDetailOverlay').style.display = 'none');
+function closeTaskDetail(){
+  document.getElementById('taskDetailOverlay').style.display = 'none';
+  if(unsubComments){ unsubComments(); unsubComments = null; }
+  currentDetailTask = null;
+}
+document.getElementById('taskDetailCloseBtn').addEventListener('click', closeTaskDetail);
+document.getElementById('tdCloseBtn2').addEventListener('click', closeTaskDetail);
+
+function commentRow(name, text, timeLabel, avatarColor){
+  const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:8px; align-items:flex-start;';
+  const av = document.createElement('div'); av.className = 'avatar sm'; av.textContent = (name||'?').slice(0,2).toUpperCase(); av.style.flex = 'none';
+  styleAvatar(av, avatarColor);
+  const body = document.createElement('div'); body.style.cssText = 'flex:1; min-width:0; background:var(--bg-elev); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-size:12.5px;';
+  const head = document.createElement('div'); head.style.cssText = 'display:flex; justify-content:space-between; gap:8px; margin-bottom:2px;';
+  head.innerHTML = `<b></b><span style="color:var(--text-faint); font-size:10.5px; flex:none;">${timeLabel}</span>`;
+  head.querySelector('b').textContent = name;
+  const bodyText = document.createElement('div'); bodyText.style.cssText = 'color:var(--text-dim); white-space:pre-wrap; word-break:break-word;'; bodyText.textContent = text;
+  body.appendChild(head); body.appendChild(bodyText);
+  row.appendChild(av); row.appendChild(body);
+  return row;
+}
+function renderTdComments(){
+  if(unsubComments){ unsubComments(); unsubComments = null; }
+  const list = document.getElementById('tdCommentsList'); list.innerHTML = '';
+  if(!currentDetailTask) return;
+  const t = currentDetailTask.activity;
+  if(CLOUD_ENABLED && currentRoom){
+    unsubComments = db.collection('rooms').doc(currentRoom.id).collection('activities').doc(t.id).collection('comments').orderBy('createdAt').onSnapshot(snap=>{
+      list.innerHTML = '';
+      if(snap.empty){ list.appendChild(emptyMsg('Nenhum comentário ainda.')); return; }
+      snap.forEach(doc=>{
+        const c = doc.data();
+        const timeLabel = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'agora';
+        const av = members[c.uid] && members[c.uid].avatarColor;
+        list.appendChild(commentRow(c.name || 'Alguém', c.text, timeLabel, av));
+      });
+      list.scrollTop = list.scrollHeight;
+    }, err=>console.warn('Erro ao ler comentários:', err));
+  } else {
+    const comments = t.comments || [];
+    if(comments.length===0){ list.appendChild(emptyMsg('Nenhum comentário ainda.')); return; }
+    comments.forEach(c=>{
+      const timeLabel = new Date(c.createdAt).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+      list.appendChild(commentRow(c.name || 'Eu', c.text, timeLabel, currentUser && currentUser.avatarColor));
+    });
+    list.scrollTop = list.scrollHeight;
+  }
+}
+function sendTdComment(){
+  if(!currentDetailTask) return;
+  const input = document.getElementById('tdCommentInput');
+  const text = input.value.trim(); if(!text) return;
+  const t = currentDetailTask.activity, dateStr = currentDetailTask.dateStr;
+  if(CLOUD_ENABLED && currentRoom){
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(t.id).collection('comments').add({
+      text, uid: currentUser.uid, name: currentUser.name, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err=>alert(friendlyFirestoreError(err)));
+  } else {
+    const list = activities[dateStr]; const item = list && list.find(x=>x.id===t.id);
+    if(item){
+      if(!item.comments) item.comments = [];
+      item.comments.push({ text, name: currentUser?currentUser.name:'Eu', createdAt: Date.now() });
+      localSave();
+      currentDetailTask.activity = item;
+      renderTdComments();
+    }
+  }
+  input.value = '';
+}
+document.getElementById('tdCommentSendBtn').addEventListener('click', sendTdComment);
+document.getElementById('tdCommentInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendTdComment(); } });
 function openTaskModal(opts){
   editingTask = opts.mode==='edit' ? opts : null;
   document.getElementById('taskModalTitle').textContent = opts.mode==='edit' ? 'Editar atividade' : 'Nova atividade';
@@ -1713,13 +1795,55 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
     dates.forEach(ds=>{
       createActivity({ text:title, description:desc, links, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
     });
+    closeTaskModal();
   } else {
     const payload = { text:title, description:desc, links, priority:modalPriority, time:timeStr, date:dateStr, assignees };
-    if(editingTask) updateActivity(editingTask.dateStr, editingTask.activity.id, payload, editingTask.activity);
-    else createActivity(payload);
+    if(editingTask){
+      const capturedDateStr = editingTask.dateStr, capturedActivity = editingTask.activity;
+      closeTaskModal();
+      if(capturedActivity.recurrenceId){
+        confirmModal('Essa atividade se repete toda semana. Aplicar esta mudança a:', ()=>{
+          updateActivity(capturedDateStr, capturedActivity.id, payload, capturedActivity);
+        }, {
+          yesLabel: 'Só este dia',
+          extraLabel: 'Este e os próximos',
+          onExtra: ()=>{
+            updateActivity(capturedDateStr, capturedActivity.id, payload, capturedActivity);
+            propagateRecurringEdit(capturedActivity.recurrenceId, capturedDateStr, payload);
+          }
+        });
+      } else {
+        updateActivity(capturedDateStr, capturedActivity.id, payload, capturedActivity);
+      }
+    } else {
+      createActivity(payload);
+      closeTaskModal();
+    }
   }
-  closeTaskModal();
 });
+async function propagateRecurringEdit(recurrenceId, fromDate, payload){
+  if(CLOUD_ENABLED && currentRoom){
+    try{
+      const snap = await db.collection('rooms').doc(currentRoom.id).collection('activities').where('recurrenceId','==',recurrenceId).get();
+      const batch = db.batch();
+      snap.forEach(doc=>{
+        if(doc.data().date >= fromDate){
+          batch.update(doc.ref, { text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'' });
+        }
+      });
+      await batch.commit();
+    }catch(err){ alert(friendlyFirestoreError(err)); }
+  } else {
+    Object.keys(activities).forEach(ds=>{
+      if(ds>=fromDate){
+        activities[ds] = activities[ds].map(t=> t.recurrenceId===recurrenceId
+          ? { ...t, text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'' }
+          : t);
+      }
+    });
+    localSave(); renderAll(); renderCalendar();
+  }
+}
 document.getElementById('taskDeleteBtn').addEventListener('click', ()=>{
   if(!editingTask) return;
   const dateStr = editingTask.dateStr, t = editingTask.activity;
@@ -1946,6 +2070,7 @@ function renderAllList(){
 /* ================= EQUIPE / LEADERBOARD ================= */
 function renderLeaderboard(){
   if(!(CLOUD_ENABLED && currentRoom)) return;
+  renderRoomStats();
   const el = document.getElementById('leaderboard'); el.innerHTML='';
   const uids = Object.keys(members);
   if(uids.length===0){ el.appendChild(emptyMsg('Ainda não há membros nesta sala.')); return; }
@@ -1972,6 +2097,27 @@ function renderLeaderboard(){
     el.appendChild(row);
     styleAvatar(row.querySelector(`#lbav-${s.uid}`), members[s.uid] && members[s.uid].avatarColor);
   });
+}
+function renderRoomStats(){
+  const box = document.getElementById('roomStatsBox'); if(!box) return;
+  box.innerHTML = '';
+  const base = new Date();
+  for(let i=6;i>=0;i--){
+    const d = new Date(base); d.setDate(base.getDate()-i);
+    const ds = fmtDate(d);
+    let total=0, done=0;
+    dayTasks(ds).forEach(t=>{ const st=taskState(t); total+=st.total; done+=st.doneCount; });
+    const pct = total>0 ? Math.round(done/total*100) : 0;
+    const label = d.toLocaleDateString('pt-BR', {weekday:'short'}).replace('.','');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:10px; margin-bottom:10px;';
+    row.innerHTML = `
+      <div style="width:34px; font-size:11px; color:var(--text-faint); text-transform:capitalize; flex:none;">${label}</div>
+      <div style="flex:1; height:10px; background:var(--bg-elev); border-radius:99px; overflow:hidden;"><div style="height:100%; width:${pct}%; background:var(--accent); border-radius:99px; transition:width .5s ease;"></div></div>
+      <div style="width:38px; text-align:right; font-size:11px; color:var(--text-dim); flex:none;">${pct}%</div>
+    `;
+    box.appendChild(row);
+  }
 }
 
 /* ================= NAV ================= */
