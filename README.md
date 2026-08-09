@@ -172,7 +172,7 @@ service cloud.firestore {
 }
 ```
 
-O que isso significa, em resumo:
+O que isso significa, em resumo :
 - Só quem está logado pode ler ou escrever, e cada pessoa só mexe no
   próprio documento em `users/{uid}` — é ali que fica guardado "qual é
   a minha sala atual", para funcionar igual no computador e no celular.
