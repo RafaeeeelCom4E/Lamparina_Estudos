@@ -171,6 +171,7 @@ body::before{
 .task.done{opacity:.6;}
 .task.partial{border-left:3px solid var(--yellow);}
 .task.task-overdue{border-left:3px solid var(--red);}
+.task.task-others{border-left:3px solid #a78bfa; opacity:.75;}
 .check{width:20px; height:20px; border-radius:6px; border:1.6px solid var(--text-faint); flex:none; margin-top:1px; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s var(--ease);}
 .check svg{width:12px; height:12px; opacity:0; transition:opacity .1s;}
 .check.mine-checked{background:var(--accent); border-color:var(--accent);}
@@ -222,6 +223,8 @@ body::before{
 .day-lamp.partial{color:var(--yellow); opacity:.9;}
 .day-lamp.pending{color:var(--blue); opacity:.95;}
 .day-lamp.overdue{color:var(--red); opacity:1;}
+.day-lamp.others-lit{color:#a78bfa; opacity:.9;}
+.day-lamp.others-pending{color:#a78bfa; opacity:.5;}
 
 .cal-side-col{display:flex; flex-direction:column; gap:18px; position:sticky; top:20px;}
 .side-panel{background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px;}
@@ -699,6 +702,7 @@ body::before{
             <span><i style="background:var(--yellow)"></i>Parcial</span>
             <span><i style="background:var(--blue)"></i>Tem atividade marcada</span>
             <span><i style="background:var(--red)"></i>Atrasada</span>
+            <span><i style="background:#a78bfa"></i>Individual de outra pessoa</span>
           </div>
           <div class="dow-row"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>
           <div class="cal-grid" id="calGrid"></div>
@@ -1868,15 +1872,17 @@ function taskRow(dateStr, t, opts={}){
   const isGroup = st.assignees.length > 1;
   const partial = !st.allDone && st.doneCount > 0;
   const isOverdue = !st.allDone && dateStr < todayStr();
+  const isOthersIndividual = !isGroup && !iAmAssignee;
   const prio = priorityMeta(t.priority);
 
   const el = document.createElement('div');
-  el.className = 'task' + (st.allDone ? ' done' : '') + (isOverdue ? ' task-overdue' : (partial ? ' partial' : ''));
+  el.className = 'task' + (st.allDone ? ' done' : '') + (isOthersIndividual ? ' task-others' : (isOverdue ? ' task-overdue' : (partial ? ' partial' : '')));
 
   function liveName(a){ return (members[a.uid] && members[a.uid].name) || a.name || '?'; }
   const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const hex=AVATAR_COLORS[col]; const style = hex ? ` style="background:${hex}26;color:${hex}"` : ''; return `<div class="avatar sm"${style} title="${nm}">${nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
   let subHtml = '';
   if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
+  else if(isOthersIndividual) subHtml = `<div class="task-sub">🔒 Individual de ${liveName(st.assignees[0])}</div>`;
   else if(t.description) subHtml = `<div class="task-sub">📝 ${(t.description.length>60 ? t.description.slice(0,60)+'…' : t.description)}</div>`;
 
   const canManage = canManageTask(t);
@@ -1986,6 +1992,7 @@ function renderCalendar(){
 }
 function updateCalendarCellStates(){
   const tstr = todayStr();
+  const uid = myUid();
   Object.entries(dayCellRefs).forEach(([ds, refs])=>{
     const list = dayTasks(ds);
     const { cell, lampWrap, prioDot, bottom } = refs;
@@ -1993,21 +2000,33 @@ function updateCalendarCellStates(){
     cell.classList.toggle('selected', ds===selectedDate);
     let lampState = null, topPrio = null;
     if(list.length>0){
-      const states = list.map(taskState);
+      const mineOrGroup = list.filter(t=>{ const s=taskState(t); return s.assignees.length>1 || s.assignees.some(a=>a.uid===uid); });
+      const relevant = mineOrGroup.length>0 ? mineOrGroup : list;
+      const states = relevant.map(taskState);
       const allDone = states.every(s=>s.allDone);
       const anyProgress = states.some(s=>s.doneCount>0);
-      lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'pending');
-      if(lampState!=='lit' && ds<tstr) lampState = 'overdue';
-      const prios = list.map(t=>t.priority||'media');
-      topPrio = prios.includes('alta') ? 'alta' : (prios.includes('media') ? 'media' : 'baixa');
+      if(mineOrGroup.length>0){
+        lampState = allDone ? 'lit' : (anyProgress ? 'partial' : 'pending');
+        if(lampState!=='lit' && ds<tstr) lampState = 'overdue';
+        const prios = relevant.map(t=>t.priority||'media');
+        topPrio = prios.includes('alta') ? 'alta' : (prios.includes('media') ? 'media' : 'baixa');
+      } else {
+        // só tarefas individuais de outras pessoas nesse dia — mostra numa cor neutra, sem prioridade
+        lampState = allDone ? 'others-lit' : 'others-pending';
+      }
     }
     cell.classList.toggle('day-complete', lampState==='lit');
     bottom.style.display = lampState ? 'flex' : 'none';
     if(lampState){
       lampWrap.className = 'day-lamp ' + lampState;
-      prioDot.style.background = priorityMeta(topPrio).color;
-      prioDot.style.opacity = lampState==='lit' ? '0' : '1';
-      prioDot.style.transform = lampState==='lit' ? 'scale(.3)' : 'scale(1)';
+      if(topPrio){
+        prioDot.style.display = 'block';
+        prioDot.style.background = priorityMeta(topPrio).color;
+        prioDot.style.opacity = lampState==='lit' ? '0' : '1';
+        prioDot.style.transform = lampState==='lit' ? 'scale(.3)' : 'scale(1)';
+      } else {
+        prioDot.style.display = 'none';
+      }
     }
   });
 }
