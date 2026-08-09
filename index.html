@@ -591,7 +591,7 @@ body::before{
   <div class="login-card" style="max-width:340px;">
     <h2 style="font-size:16px; margin-bottom:10px;">Tem certeza?</h2>
     <p id="confirmMsg" style="margin-bottom:20px;"></p>
-    <div style="display:flex; gap:8px;">
+    <div id="confirmBtnRow" style="display:flex; gap:8px;">
       <button class="btn btn-ghost" id="confirmNoBtn" style="flex:1; justify-content:center;">Cancelar</button>
       <button class="btn btn-danger" id="confirmExtraBtn" style="flex:1; justify-content:center; display:none;">Extra</button>
       <button class="btn btn-danger" id="confirmYesBtn" style="flex:1; justify-content:center;">Excluir</button>
@@ -885,11 +885,14 @@ function confirmModal(message, onYes, opts={}){
   const yesBtn = document.getElementById('confirmYesBtn');
   const noBtn = document.getElementById('confirmNoBtn');
   const extraBtn = document.getElementById('confirmExtraBtn');
+  const btnRow = document.getElementById('confirmBtnRow');
   if(opts.extraLabel && opts.onExtra){
     extraBtn.textContent = opts.extraLabel;
     extraBtn.style.display = 'flex';
+    btnRow.style.flexDirection = 'column';
   } else {
     extraBtn.style.display = 'none';
+    btnRow.style.flexDirection = 'row';
   }
   function cleanup(){
     document.getElementById('confirmOverlay').style.display='none';
