@@ -709,6 +709,11 @@ body::before{
         </div>
         <div class="cal-side-col">
           <div class="side-panel">
+            <h3 style="text-transform:none;">Suas pendências</h3>
+            <div class="sub">Tudo que você anotou e ainda não confirmou, com a data</div>
+            <div class="task-list" id="pendingList"></div>
+          </div>
+          <div class="side-panel">
             <h3 id="sideDateLabel">Selecione um dia</h3>
             <div class="sub" id="sideDateSub"></div>
             <div class="side-add">
@@ -717,11 +722,6 @@ body::before{
             </div>
             <button class="link-btn" id="sideDetailBtn" style="margin-top:0; margin-bottom:12px;">+ adicionar com detalhes</button>
             <div class="task-list" id="sideList"></div>
-          </div>
-          <div class="side-panel">
-            <h3 style="text-transform:none;">Suas pendências</h3>
-            <div class="sub">Tudo que você anotou e ainda não confirmou, com a data</div>
-            <div class="task-list" id="pendingList"></div>
           </div>
         </div>
       </div>
@@ -2037,13 +2037,36 @@ function renderSidePanel(){
   document.getElementById('sideDateLabel').textContent = d.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
   document.getElementById('sideDateSub').textContent = selectedDate===todayStr() ? 'Hoje' : '';
   const list = dayTasks(selectedDate); const el=document.getElementById('sideList'); el.innerHTML='';
-  if(list.length===0) el.appendChild(emptyMsg('Sem atividades planejadas para este dia.'));
-  else list.slice().sort((a,b)=>{
+  const byTimeThenDone = (a,b)=>{
     const da = taskState(a).allDone?1:0, db = taskState(b).allDone?1:0;
     if(da!==db) return da-db;
     return (a.time||'99:99').localeCompare(b.time||'99:99');
-  }).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
+  };
+  const uid = myUid();
+  const mineOrGroup = list.filter(t=>{ const s=taskState(t); return s.assignees.length>1 || s.assignees.some(a=>a.uid===uid); });
+  const others = list.filter(t=>{ const s=taskState(t); return !(s.assignees.length>1 || s.assignees.some(a=>a.uid===uid)); });
+  if(mineOrGroup.length===0 && others.length===0){
+    el.appendChild(emptyMsg('Sem atividades planejadas para este dia.'));
+  } else {
+    mineOrGroup.slice().sort(byTimeThenDone).forEach(tk=>el.appendChild(taskRow(selectedDate, tk)));
+    if(others.length>0) el.appendChild(othersCollapsible(body=>{ others.slice().sort(byTimeThenDone).forEach(t=>body.appendChild(taskRow(selectedDate, t))); }, others.length));
+  }
   renderPendingBox();
+}
+function othersCollapsible(fillFn, count){
+  const wrap = document.createElement('div');
+  let expanded = false;
+  const toggle = document.createElement('button');
+  toggle.type = 'button'; toggle.className = 'link-btn';
+  toggle.style.cssText = 'margin-top:10px; margin-bottom:0; display:block;';
+  const body = document.createElement('div');
+  body.className = 'task-list'; body.style.cssText = 'margin-top:8px; display:none;';
+  function updateLabel(){ toggle.textContent = (expanded ? '▾ ocultar' : '▸ mostrar') + ` atividades individuais de outras pessoas (${count})`; }
+  updateLabel();
+  toggle.addEventListener('click', ()=>{ expanded = !expanded; body.style.display = expanded ? 'flex' : 'none'; updateLabel(); });
+  fillFn(body);
+  wrap.appendChild(toggle); wrap.appendChild(body);
+  return wrap;
 }
 function renderPendingBox(){
   const pendEl = document.getElementById('pendingList'); if(!pendEl) return;
@@ -2077,16 +2100,25 @@ document.querySelectorAll('.pill').forEach(p=>{
 });
 function renderAllList(){
   const el = document.getElementById('allList'); el.innerHTML='';
-  const dates = Object.keys(activities).sort(); let any=false;
+  const dates = Object.keys(activities).sort();
+  const uid = myUid();
+  const mineRows = [], othersTasks = [];
   dates.forEach(ds=>{
     activities[ds].slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')).forEach(tk=>{
       const st = taskState(tk);
       if(currentFilter==='pendentes' && st.allDone) return;
       if(currentFilter==='concluidas' && !st.allDone) return;
-      el.appendChild(taskRow(ds, tk, {showDate:true})); any=true;
+      const isOthers = !(st.assignees.length>1 || st.assignees.some(a=>a.uid===uid));
+      if(isOthers) othersTasks.push([ds, tk]); else mineRows.push([ds, tk]);
     });
   });
-  if(!any) el.appendChild(emptyMsg('Nada por aqui ainda.'));
+  if(mineRows.length===0 && othersTasks.length===0){ el.appendChild(emptyMsg('Nada por aqui ainda.')); return; }
+  mineRows.forEach(([ds,tk])=>el.appendChild(taskRow(ds, tk, {showDate:true})));
+  if(othersTasks.length>0){
+    el.appendChild(othersCollapsible(body=>{
+      othersTasks.forEach(([ds,tk])=> body.appendChild(taskRow(ds, tk, {showDate:true})));
+    }, othersTasks.length));
+  }
 }
 
 /* ================= EQUIPE / LEADERBOARD ================= */
