@@ -16,7 +16,75 @@ por quem participa de cada uma).
   precisam ser publicados junto, na mesma pasta do `index.html`.
 - `README.md` — este arquivo.
 
-## Instalar o site como app
+## Histórico de desenvolvimento (resumo por etapa)
+
+1. Painel, Calendário, Atividades, login local, 4 temas de cor.
+2. Firebase Auth (e-mail/senha), salas via Firestore, ranking da equipe.
+3. Login Google, descrição/prioridade nas atividades, atividades em
+   grupo com confirmação individual, salas públicas/privadas, CRUD
+   completo, confirmação em exclusões.
+4. Regras do Firestore simplificadas, tela de "sala atual" antes de
+   trocar, descrição/edição de sala, perfil (nome + cor de avatar).
+5. Corrigido bug de inicialização (TDZ) que travava o modo local.
+6. Diagnóstico do Firebase reescrito pra mostrar o motivo exato de
+   "modo local ativo" direto no app.
+7. Aba renomeada pra "Privado", modal de detalhes de sala pública,
+   sincronização de sala entre dispositivos (coleção `users`),
+   código/senha visíveis só pro dono, PWA instalável (manifest,
+   service worker, ícones), horário e repetição semanal em atividades.
+8. Corrigido bug do horário sumindo (não era lido de volta do
+   Firestore), calendário com 3 estados visuais, caixa "Suas
+   pendências", selos de sala corrigidos visualmente.
+9. Brilho suave no dia 100% concluído, bolinha de prioridade no
+   calendário (verde/amarelo/vermelho), mais espaçamento nos modais.
+10. Tela de detalhes da atividade (antes de editar), atividades
+    individuais só editáveis por quem criou (app + regra do Firestore).
+11. Corrigida regressão de layout no desktop e bug do cache do app
+    instalado (service worker "cache primeiro" → "rede primeiro").
+12. Atividades atrasadas em vermelho, link/anexo na atividade,
+    convite por link (`?sala=codigo`).
+13. Corrigido bug do link relativo (faltava `https://`), suporte a
+    múltiplos links visíveis.
+14. Comentários por atividade, estatísticas da sala (% por dia),
+    editar atividade recorrente com opção de propagar.
+15. Corrigido overflow do modal de confirmação com 3 botões.
+16. Atividades individuais de outras pessoas ganham cor roxa
+    separada (calendário e listas), continuam visíveis mas
+    diferenciadas das próprias.
+17. Reordenado o Calendário: "Suas pendências" primeiro; atividades
+    individuais de outras pessoas ficam recolhidas por padrão.
+18–19. Duas rodadas de correção de responsividade mobile: `.task-text`
+    sem `min-width:0` (texto não encolhia, estourava a página) e depois
+    o grid do calendário (`repeat(7,1fr)` sem `minmax(0,1fr)`, mesma
+    armadilha do CSS Grid). Resolveu Atividades e Equipe no celular.
+
+## ⚠️ Problema conhecido em aberto: Calendário no celular
+
+Mesmo depois das correções acima, ao tocar num dia do Calendário que
+tem uma atividade do próprio usuário, as **caixas de informação**
+(painel do dia / "Suas pendências") aumentam de tamanho sozinhas,
+diferente de tocar num dia vazio (que fica normal). As correções já
+feitas (grid `minmax(0,1fr)`, `.task-text` com `min-width:0`)
+resolveram o Calendário em si e as abas Atividades/Equipe, mas **não**
+resolveram esse caso específico — o problema parece estar dentro das
+próprias caixas de informação que aparecem/atualizam ao selecionar um
+dia com atividade (`.side-panel`, `#pendingList`, ou algo renderizado
+dentro delas via `taskRow`/`renderPendingBox`/`renderSidePanel`),
+não no grid do calendário. Vale investigar esses elementos
+especificamente na próxima sessão, com o mesmo tipo de diagnóstico
+(procurar containers flex/grid sem `min-width:0` cujo conteúdo pode
+crescer quando uma atividade real é renderizada, em vez de um estado
+vazio).
+
+## Ideias discutidas, ainda não implementadas
+
+- Notificação no navegador pouco antes do horário de uma atividade.
+- Modo offline de verdade (guardar ações sem internet e sincronizar
+  depois — hoje o service worker só cacheia arquivos estáticos).
+- Exportar/imprimir a semana em PDF ou texto.
+- Upload de foto de perfil real (precisa configurar Firebase Storage
+  primeiro, é um passo a mais no console do Firebase).
+- Busca/filtro por prioridade na aba Atividades.
 
 Clique em "Instalar app" no topo da tela. No computador ou Android
 isso abre o instalador nativo do navegador; no iPhone/iPad (Safari não
