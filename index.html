@@ -1190,17 +1190,23 @@ document.getElementById('joinRoomBtn').addEventListener('click', async ()=>{
   }catch(err){ showErr('roomError', friendlyFirestoreError(err)); }
 });
 async function joinRoom(code){
-  await db.collection('rooms').doc(code).collection('members').doc(currentUser.uid).set({
-    name: currentUser.name, email: currentUser.email || null, avatarColor: currentUser.avatarColor || null,
-    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge:true });
   currentRoom = { id: code };
   localStorage.setItem(ROOM_CACHE_KEY + currentUser.uid, code);
-  try{ await db.collection('users').doc(currentUser.uid).set({ currentRoom: code, name: currentUser.name }, { merge:true }); }catch(e){}
   document.getElementById('roomOverlay').style.display = 'none';
   document.getElementById('publicRoomOverlay').style.display = 'none';
   applyUserToUI();
   startRoomListeners();
+  // Estas duas escritas ficam em segundo plano, sem "await": se estiver
+  // offline, uma escrita no Firestore só é confirmada (a Promise só
+  // resolve) quando a internet voltar — se ficássemos esperando aqui
+  // antes de ligar os listeners (como era antes), a sala nunca chegava a
+  // mostrar as atividades já existentes enquanto offline. Assim elas
+  // ficam na fila e são enviadas sozinhas quando a conexão voltar.
+  db.collection('rooms').doc(code).collection('members').doc(currentUser.uid).set({
+    name: currentUser.name, email: currentUser.email || null, avatarColor: currentUser.avatarColor || null,
+    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge:true }).catch(err=>console.warn('Falha ao atualizar membro da sala:', err));
+  db.collection('users').doc(currentUser.uid).set({ currentRoom: code, name: currentUser.name }, { merge:true }).catch(()=>{});
 }
 function leaveRoomCleanup(){
   stopRoomListeners();

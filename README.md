@@ -72,6 +72,14 @@ por quem participa de cada uma).
     não do cache); e corrigido o service worker, que bloqueava o cache
     dos próprios scripts do Firebase (gstatic.com) — sem isso o app
     nem conseguia inicializar o modo nuvem estando 100% offline.
+22. Corrigido o motivo real de as atividades já existentes não
+    aparecerem offline: `joinRoom()` tinha um `await` numa escrita no
+    Firestore (atualizar o registro de "membro" da sala) antes de ligar
+    os listeners de atividades — offline, essa escrita só é confirmada
+    quando a internet volta, então o app ficava travado esperando pra
+    sempre e nunca chegava a mostrar nada. Agora a sala é aberta e os
+    listeners ligam imediatamente; essas escritas rodam em segundo
+    plano e ficam na fila até a conexão voltar.
 
 ## ⚠️ Problema conhecido em aberto: nenhum no momento
 
@@ -354,7 +362,9 @@ trate como segurança forte.
 - **Modo offline de verdade**: dá pra abrir o app e anotar atividades
   mesmo sem internet — os dados ficam salvos no aparelho e sincronizam
   sozinhos quando a conexão voltar. Aparece um aviso "Você está sem
-  internet" enquanto isso (ver item 21 do histórico).
+  internet" enquanto isso (ver itens 21 e 22 do histórico — o 22
+  corrige o motivo pelo qual as atividades já existentes não estavam
+  aparecendo offline logo de início).
 
 ## Próxima etapa sugerida
 
