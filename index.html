@@ -127,6 +127,7 @@ body::before{
 .local-banner{display:flex; align-items:center; gap:10px; background:var(--bg-card); border:1px solid var(--border-soft); border-left:3px solid var(--yellow); border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text-dim);}
 .local-banner b{color:var(--text);}
 .local-banner code{background:var(--bg-elev); padding:1px 6px; border-radius:5px; color:var(--accent);}
+.offline-banner{border-left-color:var(--blue);}
 
 .theme-swatches{display:flex; gap:6px; background:var(--bg-card); border:1px solid var(--border-soft); padding:5px; border-radius:99px;}
 .swatch{width:20px; height:20px; border-radius:50%; border:2px solid transparent; cursor:pointer; transition:transform .15s var(--ease);}
@@ -660,6 +661,10 @@ body::before{
       </div>
     </div>
 
+    <div class="local-banner offline-banner" id="offlineBanner" style="display:none;">
+      📴 <span><b>Você está sem internet.</b> <span id="offlineBannerReason">Pode continuar anotando normalmente — nada trava.</span></span>
+    </div>
+
     <div class="local-banner" id="localBanner" style="display:none;">
       ⚠️ <span><b>Modo local ativo.</b> <span id="localBannerReason">Configure <code>firebase-config.js</code> e recarregue a página para ativar contas, Google, e salas compartilhadas com sua equipe.</span></span>
     </div>
@@ -845,6 +850,18 @@ if(typeof firebase === 'undefined'){
     auth = firebase.auth();
     db = firebase.firestore();
     CLOUD_ENABLED = true;
+    // Sem isto, o Firestore só guarda dados em memória (some ao recarregar a
+    // página). Com isto, sala/atividades ficam salvas no dispositivo (IndexedDB)
+    // e o app consegue abrir e mostrar os dados mesmo sem internet. Escritas
+    // feitas offline (nova atividade, marcar concluída etc.) ficam na fila e
+    // são enviadas sozinhas assim que a conexão voltar.
+    db.enablePersistence({ synchronizeTabs: true }).catch(err=>{
+      // 'failed-precondition': já tem outra aba do site aberta (só uma aba
+      // pode manter a persistência por vez com synchronizeTabs desativado,
+      // mas com ele ativado isso normalmente nem deveria disparar).
+      // 'unimplemented': navegador não suporta (raro, ex.: modo privado antigo).
+      console.warn('Persistência offline do Firestore não ativada:', err && err.code);
+    });
   }catch(e){
     CLOUD_DISABLED_REASON = 'Erro ao inicializar: ' + (e && e.message ? e.message : e);
     console.warn('Firebase não inicializado:', e);
@@ -912,6 +929,23 @@ function confirmModal(message, onYes, opts={}){
   noBtn.addEventListener('click', onNoHandler);
   extraBtn.addEventListener('click', onExtraHandler);
 }
+
+/* ================= STATUS DE CONEXÃO ================= */
+function updateOnlineStatus(){
+  const banner = document.getElementById('offlineBanner');
+  const reason = document.getElementById('offlineBannerReason');
+  if(!banner) return;
+  const isOffline = !navigator.onLine;
+  banner.style.display = isOffline ? 'flex' : 'none';
+  if(isOffline && reason){
+    reason.textContent = CLOUD_ENABLED
+      ? 'Pode continuar anotando normalmente — as alterações ficam salvas neste dispositivo e são enviadas para a sala assim que a internet voltar.'
+      : 'Pode continuar anotando normalmente — tudo fica salvo neste dispositivo.';
+  }
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
 
 /* ================= LOCAL MODE ================= */
 function localSave(){ localStorage.setItem(DB_KEY, JSON.stringify(activities)); }
@@ -1191,6 +1225,11 @@ function startRoomListeners(){
   sawSelfInRoom = false;
   unsubRoomDoc = db.collection('rooms').doc(currentRoom.id).onSnapshot(doc=>{
     if(!doc.exists){
+      // Se veio do cache local (offline) e não do servidor, "não existe" pode
+      // só significar "este dispositivo nunca guardou essa sala" — não
+      // necessariamente que ela foi excluída de verdade. Só confia nisso
+      // quando a confirmação vier do servidor.
+      if(doc.metadata.fromCache) return;
       if(currentRoom){ alert('Esta sala foi excluída.'); leaveRoomCleanup(); openRoomOverlay(); }
       return;
     }

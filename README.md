@@ -57,30 +57,30 @@ por quem participa de cada uma).
     sem `min-width:0` (texto não encolhia, estourava a página) e depois
     o grid do calendário (`repeat(7,1fr)` sem `minmax(0,1fr)`, mesma
     armadilha do CSS Grid). Resolveu Atividades e Equipe no celular.
+20. Corrigido o bug das caixas do Calendário crescendo no celular ao
+    tocar num dia com atividade própria: era a mesma armadilha de CSS
+    Grid do item 19, só que faltando aplicar em `.cal-layout` (o grid
+    que organiza o calendário e o painel lateral) — `1fr` sozinho vira
+    `minmax(auto,1fr)`, então o conteúdo da caixa (`taskRow`) podia
+    forçar a coluna a crescer; corrigido pra `minmax(0,1fr)`.
+21. Modo offline de verdade: persistência do Firestore ativada
+    (`enablePersistence`), então sala e atividades ficam salvas no
+    aparelho e sobrevivem a recarregar a página sem internet; banner
+    "Você está sem internet" aparece/some sozinho conforme a conexão;
+    corrigido falso positivo de "sala foi excluída" que a persistência
+    poderia causar (só confia em "não existe" quando vem do servidor,
+    não do cache); e corrigido o service worker, que bloqueava o cache
+    dos próprios scripts do Firebase (gstatic.com) — sem isso o app
+    nem conseguia inicializar o modo nuvem estando 100% offline.
 
-## ⚠️ Problema conhecido em aberto: Calendário no celular
+## ⚠️ Problema conhecido em aberto: nenhum no momento
 
-Mesmo depois das correções acima, ao tocar num dia do Calendário que
-tem uma atividade do próprio usuário, as **caixas de informação**
-(painel do dia / "Suas pendências") aumentam de tamanho sozinhas,
-diferente de tocar num dia vazio (que fica normal). As correções já
-feitas (grid `minmax(0,1fr)`, `.task-text` com `min-width:0`)
-resolveram o Calendário em si e as abas Atividades/Equipe, mas **não**
-resolveram esse caso específico — o problema parece estar dentro das
-próprias caixas de informação que aparecem/atualizam ao selecionar um
-dia com atividade (`.side-panel`, `#pendingList`, ou algo renderizado
-dentro delas via `taskRow`/`renderPendingBox`/`renderSidePanel`),
-não no grid do calendário. Vale investigar esses elementos
-especificamente na próxima sessão, com o mesmo tipo de diagnóstico
-(procurar containers flex/grid sem `min-width:0` cujo conteúdo pode
-crescer quando uma atividade real é renderizada, em vez de um estado
-vazio).
+O bug das caixas do Calendário crescendo no celular (visto nas etapas
+anteriores) foi corrigido na etapa 20 — ver histórico acima.
 
 ## Ideias discutidas, ainda não implementadas
 
 - Notificação no navegador pouco antes do horário de uma atividade.
-- Modo offline de verdade (guardar ações sem internet e sincronizar
-  depois — hoje o service worker só cacheia arquivos estáticos).
 - Exportar/imprimir a semana em PDF ou texto.
 - Upload de foto de perfil real (precisa configurar Firebase Storage
   primeiro, é um passo a mais no console do Firebase).
@@ -348,19 +348,14 @@ trate como segurança forte.
 
 ## Novidades desta etapa
 
-- **Comentários por atividade**: na tela de detalhes, dá pra escrever
-  e ver comentários de quem participa da sala (tipo um mini chat por
-  tarefa) — em tempo real quando em sala compartilhada.
-- **Estatísticas da sala**: barrinha de % concluído por dia, últimos
-  7 dias, na aba Equipe.
-- **Editar série recorrente**: ao editar uma atividade que se repete,
-  agora pergunta se a mudança vale só pra aquele dia ou pra esse e os
-  próximos da série.
-
-⚠️ Regras do Firestore mudaram de novo (comentários) — precisa
-republicar.
+- **Bug do Calendário no celular corrigido**: as caixas de informação
+  não crescem mais sozinhas ao tocar num dia com atividade própria
+  (era `.cal-layout` sem `minmax(0,1fr)` — ver item 20 do histórico).
+- **Modo offline de verdade**: dá pra abrir o app e anotar atividades
+  mesmo sem internet — os dados ficam salvos no aparelho e sincronizam
+  sozinhos quando a conexão voltar. Aparece um aviso "Você está sem
+  internet" enquanto isso (ver item 21 do histórico).
 
 ## Próxima etapa sugerida
 
-- Notificações, modo offline de verdade, exportar semana em PDF,
-  upload de foto de perfil real.
+- Notificações, exportar semana em PDF, upload de foto de perfil real.
