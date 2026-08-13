@@ -161,6 +161,7 @@ body::before{
 .btn:disabled{opacity:.5; cursor:not-allowed;}
 .btn-ghost{background:transparent; border:1px solid var(--border); color:var(--text-dim);}
 .btn-ghost:hover{color:var(--text); border-color:var(--text-faint);}
+.btn-ghost.active{background:var(--accent-soft); border-color:var(--accent-dim); color:var(--accent);}
 .btn-danger{background:var(--red); color:#fff;}
 .btn svg{width:15px; height:15px;}
 
@@ -946,10 +947,13 @@ function notifSupported(){ return 'Notification' in window; }
 function notifEnabled(){ return notifSupported() && Notification.permission==='granted' && localStorage.getItem(NOTIF_PREF_KEY)==='1'; }
 function updateNotifBtn(){
   const label = document.getElementById('notifBtnLabel');
-  if(!label) return;
+  const btn = document.getElementById('notifBtn');
+  if(!label || !btn) return;
+  const on = notifEnabled();
+  btn.classList.toggle('active', on);
   if(!notifSupported()) label.textContent = 'Notificações indisponíveis';
   else if(Notification.permission==='denied') label.textContent = 'Notificações bloqueadas';
-  else if(notifEnabled()) label.textContent = 'Notificações ativadas';
+  else if(on) label.textContent = '🔔 Notificações ativadas';
   else label.textContent = 'Ativar notificações';
 }
 document.getElementById('notifBtn').addEventListener('click', async ()=>{
