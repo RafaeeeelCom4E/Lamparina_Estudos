@@ -87,6 +87,10 @@ por quem participa de cada uma).
     estiver aberto (mesmo que em segundo plano) — não tem como avisar
     com o app totalmente fechado; isso exigiria um servidor de push
     (Firebase Cloud Functions).
+24. Busca e filtro por prioridade na aba Atividades: campo de busca
+    (por título/descrição) e pills de prioridade (Baixa/Média/Alta),
+    combinam com o filtro de status (Todas/Pendentes/Concluídas) que
+    já existia.
 
 ## ⚠️ Problema conhecido em aberto: nenhum no momento
 
@@ -98,7 +102,6 @@ anteriores) foi corrigido na etapa 20 — ver histórico acima.
 - Exportar/imprimir a semana em PDF ou texto.
 - Upload de foto de perfil real (precisa configurar Firebase Storage
   primeiro, é um passo a mais no console do Firebase).
-- Busca/filtro por prioridade na aba Atividades.
 
 Clique em "Instalar app" no topo da tela. No computador ou Android
 isso abre o instalador nativo do navegador; no iPhone/iPad (Safari não
@@ -362,12 +365,10 @@ trate como segurança forte.
 
 ## Novidades desta etapa
 
-- **Notificações**: botão "Ativar notificações" na topbar avisa 15
-  minutos antes do horário de cada atividade sua do dia (ver item 23
-  do histórico — funciona só com o app aberto, é uma limitação de
-  site estático sem servidor).
+- **Busca/filtro por prioridade**: aba Atividades ganhou campo de
+  busca (título/descrição) e pills de prioridade, combinando com o
+  filtro de status que já existia (ver item 24 do histórico).
 
 ## Próxima etapa sugerida
 
-- Exportar semana em PDF, upload de foto de perfil real, busca/filtro
-  por prioridade.
+- Exportar semana em PDF, upload de foto de perfil real.

@@ -244,6 +244,9 @@ body::before{
 .pillbar{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
 .pill{background:var(--bg-card); border:1px solid var(--border-soft); color:var(--text-dim); padding:7px 14px; border-radius:99px; font-size:12.5px; font-weight:600;}
 .pill.active{background:var(--accent-soft); border-color:var(--accent-dim); color:var(--accent);}
+.search-input{width:100%; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:10px 14px; font-size:13px; color:var(--text); margin-bottom:16px;}
+.search-input::placeholder{color:var(--text-faint);}
+.search-input:focus{outline:none; border-color:var(--accent-dim);}
 
 /* ---- Equipe / leaderboard ---- */
 .room-banner{display:flex; align-items:center; justify-content:space-between; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px 18px; margin-bottom:20px; flex-wrap:wrap; gap:12px;}
@@ -745,6 +748,13 @@ body::before{
         <button class="pill" data-filter="pendentes">Pendentes</button>
         <button class="pill" data-filter="concluidas">Concluídas</button>
       </div>
+      <div class="pillbar" id="prioPillbar">
+        <button class="pill active" data-prio="todas">Qualquer prioridade</button>
+        <button class="pill" data-prio="baixa">Baixa</button>
+        <button class="pill" data-prio="media">Média</button>
+        <button class="pill" data-prio="alta">Alta</button>
+      </div>
+      <input type="text" class="search-input" id="searchInput" placeholder="Buscar por título ou descrição…">
       <div class="task-list" id="allList"></div>
     </section>
 
@@ -903,6 +913,8 @@ function myUid(){ return (CLOUD_ENABLED && currentUser) ? currentUser.uid : 'me'
 let calDate = new Date();
 let selectedDate = todayStr();
 let currentFilter = 'todas';
+let currentPrioFilter = 'todas';
+let searchQuery = '';
 
 /* ================= CONFIRM MODAL ================= */
 function confirmModal(message, onYes, opts={}){
@@ -2229,11 +2241,21 @@ document.getElementById('sideInput').addEventListener('keydown', e=>{ if(e.key==
 document.getElementById('sideDetailBtn').addEventListener('click', ()=> openTaskModal({ mode:'create', dateStr: selectedDate }));
 
 /* ================= ATIVIDADES (todas) ================= */
-document.querySelectorAll('.pill').forEach(p=>{
+document.querySelectorAll('.pill[data-filter]').forEach(p=>{
   p.addEventListener('click', ()=>{
-    document.querySelectorAll('.pill').forEach(x=>x.classList.remove('active')); p.classList.add('active');
+    document.querySelectorAll('.pill[data-filter]').forEach(x=>x.classList.remove('active')); p.classList.add('active');
     currentFilter = p.dataset.filter; renderAllList();
   });
+});
+document.querySelectorAll('.pill[data-prio]').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    document.querySelectorAll('.pill[data-prio]').forEach(x=>x.classList.remove('active')); p.classList.add('active');
+    currentPrioFilter = p.dataset.prio; renderAllList();
+  });
+});
+document.getElementById('searchInput').addEventListener('input', e=>{
+  searchQuery = e.target.value.trim().toLowerCase();
+  renderAllList();
 });
 function renderAllList(){
   const el = document.getElementById('allList'); el.innerHTML='';
@@ -2245,6 +2267,11 @@ function renderAllList(){
       const st = taskState(tk);
       if(currentFilter==='pendentes' && st.allDone) return;
       if(currentFilter==='concluidas' && !st.allDone) return;
+      if(currentPrioFilter!=='todas' && (tk.priority||'media')!==currentPrioFilter) return;
+      if(searchQuery){
+        const haystack = ((tk.text||'') + ' ' + (tk.description||'')).toLowerCase();
+        if(!haystack.includes(searchQuery)) return;
+      }
       const isOthers = !(st.assignees.length>1 || st.assignees.some(a=>a.uid===uid));
       if(isOthers) othersTasks.push([ds, tk]); else mineRows.push([ds, tk]);
     });
