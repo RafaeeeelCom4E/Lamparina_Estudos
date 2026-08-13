@@ -80,6 +80,13 @@ por quem participa de cada uma).
     sempre e nunca chegava a mostrar nada. Agora a sala é aberta e os
     listeners ligam imediatamente; essas escritas rodam em segundo
     plano e ficam na fila até a conexão voltar.
+23. Notificações no navegador: botão "Ativar notificações" na topbar,
+    avisa 15 minutos antes do horário de cada atividade sua do dia
+    (que ainda não foi concluída). **Limitação importante:** como o
+    site é estático (sem servidor), só funciona enquanto o app/aba
+    estiver aberto (mesmo que em segundo plano) — não tem como avisar
+    com o app totalmente fechado; isso exigiria um servidor de push
+    (Firebase Cloud Functions).
 
 ## ⚠️ Problema conhecido em aberto: nenhum no momento
 
@@ -88,7 +95,6 @@ anteriores) foi corrigido na etapa 20 — ver histórico acima.
 
 ## Ideias discutidas, ainda não implementadas
 
-- Notificação no navegador pouco antes do horário de uma atividade.
 - Exportar/imprimir a semana em PDF ou texto.
 - Upload de foto de perfil real (precisa configurar Firebase Storage
   primeiro, é um passo a mais no console do Firebase).
@@ -356,16 +362,12 @@ trate como segurança forte.
 
 ## Novidades desta etapa
 
-- **Bug do Calendário no celular corrigido**: as caixas de informação
-  não crescem mais sozinhas ao tocar num dia com atividade própria
-  (era `.cal-layout` sem `minmax(0,1fr)` — ver item 20 do histórico).
-- **Modo offline de verdade**: dá pra abrir o app e anotar atividades
-  mesmo sem internet — os dados ficam salvos no aparelho e sincronizam
-  sozinhos quando a conexão voltar. Aparece um aviso "Você está sem
-  internet" enquanto isso (ver itens 21 e 22 do histórico — o 22
-  corrige o motivo pelo qual as atividades já existentes não estavam
-  aparecendo offline logo de início).
+- **Notificações**: botão "Ativar notificações" na topbar avisa 15
+  minutos antes do horário de cada atividade sua do dia (ver item 23
+  do histórico — funciona só com o app aberto, é uma limitação de
+  site estático sem servidor).
 
 ## Próxima etapa sugerida
 
-- Notificações, exportar semana em PDF, upload de foto de perfil real.
+- Exportar semana em PDF, upload de foto de perfil real, busca/filtro
+  por prioridade.

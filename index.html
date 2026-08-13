@@ -648,6 +648,10 @@ body::before{
         <div><h1 id="viewTitle">Painel</h1><div class="topbar-sub" id="viewSub">Sua visão geral de hoje</div></div>
       </div>
       <div class="topbar-actions">
+        <button class="btn btn-ghost" id="notifBtn" title="Avisar alguns minutos antes do horário de cada atividade (enquanto o app estiver aberto)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span id="notifBtnLabel">Ativar notificações</span>
+        </button>
         <button class="btn btn-ghost" id="installBtn" title="Instalar o Lamparina como app">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>
           Instalar app
@@ -929,6 +933,89 @@ function confirmModal(message, onYes, opts={}){
   noBtn.addEventListener('click', onNoHandler);
   extraBtn.addEventListener('click', onExtraHandler);
 }
+
+/* ================= NOTIFICAÇÕES ================= */
+// Aviso alguns minutos antes do horário de uma atividade. Importante: como
+// o Lamparina é um site estático (sem servidor por trás), isso só funciona
+// enquanto o app/aba estiver aberto (mesmo que em segundo plano) — não tem
+// como avisar com o app totalmente fechado sem um servidor de push.
+const NOTIF_LEAD_MIN = 15; // quantos minutos antes do horário avisa
+const NOTIF_PREF_KEY = 'lamparina_notif_enabled_v1';
+const NOTIF_SEEN_KEY = 'lamparina_notif_seen_v1';
+function notifSupported(){ return 'Notification' in window; }
+function notifEnabled(){ return notifSupported() && Notification.permission==='granted' && localStorage.getItem(NOTIF_PREF_KEY)==='1'; }
+function updateNotifBtn(){
+  const label = document.getElementById('notifBtnLabel');
+  if(!label) return;
+  if(!notifSupported()) label.textContent = 'Notificações indisponíveis';
+  else if(Notification.permission==='denied') label.textContent = 'Notificações bloqueadas';
+  else if(notifEnabled()) label.textContent = 'Notificações ativadas';
+  else label.textContent = 'Ativar notificações';
+}
+document.getElementById('notifBtn').addEventListener('click', async ()=>{
+  if(!notifSupported()){ alert('Seu navegador não suporta notificações.'); return; }
+  if(Notification.permission==='denied'){
+    alert('As notificações estão bloqueadas para este site nas configurações do navegador. Permita nas configurações e recarregue a página para ativar.');
+    return;
+  }
+  if(notifEnabled()){
+    localStorage.setItem(NOTIF_PREF_KEY, '0');
+    updateNotifBtn();
+    return;
+  }
+  const perm = Notification.permission==='granted' ? 'granted' : await Notification.requestPermission();
+  if(perm==='granted'){
+    localStorage.setItem(NOTIF_PREF_KEY, '1');
+    new Notification('Lamparina', { body:'Notificações ativadas! Você será avisado ' + NOTIF_LEAD_MIN + ' minutos antes de cada atividade, enquanto o app estiver aberto.', icon:'icons/icon-192.png' });
+  }
+  updateNotifBtn();
+});
+function getSeenNotifIds(){
+  const ds = todayStr();
+  try{
+    const raw = JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || '{}');
+    return (raw.date===ds) ? new Set(raw.ids) : new Set();
+  }catch(e){ return new Set(); }
+}
+function markNotifSeen(id){
+  const ds = todayStr();
+  let raw; try{ raw = JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || '{}'); }catch(e){ raw = {}; }
+  if(raw.date!==ds) raw = { date: ds, ids: [] };
+  raw.ids.push(id);
+  localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(raw));
+}
+async function fireNotification(t){
+  const body = (t.time ? t.time + ' — ' : '') + 'daqui a ' + NOTIF_LEAD_MIN + ' minutos.';
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification(t.text || 'Atividade', { body, icon:'icons/icon-192.png', tag:'lamparina-'+t.id });
+      return;
+    }
+  }catch(e){}
+  try{ new Notification(t.text || 'Atividade', { body, icon:'icons/icon-192.png', tag:'lamparina-'+t.id }); }catch(e){}
+}
+function checkUpcomingNotifications(){
+  if(!notifEnabled()) return;
+  const seen = getSeenNotifIds();
+  const now = new Date();
+  myTasksForDate(todayStr()).forEach(t=>{
+    if(!t.time || seen.has(t.id)) return;
+    const st = taskState(t);
+    const uid = myUid();
+    if(st.completions[uid]) return; // já concluída, não precisa avisar
+    const [hh,mm] = t.time.split(':').map(Number);
+    if(isNaN(hh) || isNaN(mm)) return;
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+    const diffMin = (target - now) / 60000;
+    if(diffMin <= NOTIF_LEAD_MIN && diffMin > -1){ // já entrou na janela e ainda não passou muito do horário
+      fireNotification(t);
+      markNotifSeen(t.id);
+    }
+  });
+}
+updateNotifBtn();
+setInterval(checkUpcomingNotifications, 30000);
 
 /* ================= STATUS DE CONEXÃO ================= */
 function updateOnlineStatus(){
