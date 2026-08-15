@@ -492,11 +492,25 @@ body::before{
     <p style="text-align:left;">Ajuste como seu nome e avatar aparecem para a equipe.</p>
     <div class="auth-error" id="profileError"></div>
     <div class="field"><label>Nome</label><input type="text" id="profileNameInput" maxlength="24"></div>
+    <div class="field" id="profilePhotoField" style="display:none;">
+      <label>Foto de perfil</label>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="avatar" id="profilePhotoPreview" style="width:56px; height:56px; font-size:18px; border-radius:16px;">?</div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-ghost" id="profilePhotoPickBtn" style="padding:7px 12px; font-size:12px;">Escolher foto</button>
+            <button type="button" class="btn btn-ghost" id="profilePhotoRemoveBtn" style="padding:7px 12px; font-size:12px; display:none;">Remover</button>
+          </div>
+          <span id="profilePhotoStatus" style="font-size:11px; color:var(--text-faint);"></span>
+        </div>
+      </div>
+      <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;">
+    </div>
     <div class="field">
       <label>Cor do avatar</label>
       <div class="avatar-color-grid" id="avatarColorGrid"></div>
     </div>
-    <div class="perm-hint">Foto de perfil real ainda não está disponível — isso exigiria configurar o Firebase Storage. Por enquanto você pode escolher uma cor para o seu avatar.</div>
+    <div class="perm-hint" id="profilePhotoHint">Foto de perfil real ainda não está disponível — isso exigiria configurar o Firebase Storage. Por enquanto você pode escolher uma cor para o seu avatar.</div>
     <div style="display:flex; gap:8px; margin-top:14px;">
       <button class="btn btn-ghost" id="profileCancelBtn" style="flex:1; justify-content:center;">Cancelar</button>
       <button class="btn" id="profileSaveBtn" style="flex:1; justify-content:center;">Salvar</button>
@@ -803,6 +817,7 @@ body::before{
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 /* ================= LAMP SVG ================= */
@@ -852,7 +867,7 @@ if('serviceWorker' in navigator){
 /* ================= FIREBASE INIT ================= */
 let CLOUD_ENABLED = false;
 let CLOUD_DISABLED_REASON = '';
-let auth = null, db = null;
+let auth = null, db = null, storage = null;
 if(typeof firebase === 'undefined'){
   CLOUD_DISABLED_REASON = 'Os scripts do Firebase (firebase-app-compat.js etc, hospedados em gstatic.com) não carregaram. Verifique sua conexão ou se algum bloqueador de anúncios/extensão de privacidade está bloqueando o domínio gstatic.com — teste numa aba anônima sem extensões.';
 } else if(typeof firebaseConfig === 'undefined'){
@@ -864,6 +879,7 @@ if(typeof firebase === 'undefined'){
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
+    storage = firebase.storage();
     CLOUD_ENABLED = true;
     // Sem isto, o Firestore só guarda dados em memória (some ao recarregar a
     // página). Com isto, sala/atividades ficam salvas no dispositivo (IndexedDB)
@@ -1306,7 +1322,7 @@ async function joinRoom(code){
   // mostrar as atividades já existentes enquanto offline. Assim elas
   // ficam na fila e são enviadas sozinhas quando a conexão voltar.
   db.collection('rooms').doc(code).collection('members').doc(currentUser.uid).set({
-    name: currentUser.name, email: currentUser.email || null, avatarColor: currentUser.avatarColor || null,
+    name: currentUser.name, email: currentUser.email || null, avatarColor: currentUser.avatarColor || null, photoURL: currentUser.photoURL || null,
     joinedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge:true }).catch(err=>console.warn('Falha ao atualizar membro da sala:', err));
   db.collection('users').doc(currentUser.uid).set({ currentRoom: code, name: currentUser.name }, { merge:true }).catch(()=>{});
@@ -1368,6 +1384,7 @@ function startRoomListeners(){
       let changed = false;
       if(mine.name && mine.name !== currentUser.name){ currentUser.name = mine.name; changed = true; }
       if(mine.avatarColor !== undefined && mine.avatarColor !== currentUser.avatarColor){ currentUser.avatarColor = mine.avatarColor; changed = true; }
+      if(mine.photoURL !== undefined && mine.photoURL !== currentUser.photoURL){ currentUser.photoURL = mine.photoURL; changed = true; }
       if(changed) applyUserToUI();
     }
     renderLeaderboard(); renderManageRoom();
@@ -1410,14 +1427,28 @@ if(CLOUD_ENABLED){
 /* ================= UI: usuário / sala ================= */
 function styleAvatar(el, colorKey){
   const hex = AVATAR_COLORS[colorKey];
-  if(hex){ el.style.background = hex + '26'; el.style.color = hex; }
-  else { el.style.background = ''; el.style.color = ''; }
+  el.style.backgroundImage = '';
+  if(hex){ el.style.backgroundColor = hex + '26'; el.style.color = hex; }
+  else { el.style.backgroundColor = ''; el.style.color = ''; }
+}
+function paintAvatar(el, name, colorKey, photoURL){
+  if(photoURL){
+    el.textContent = '';
+    el.style.backgroundColor = '';
+    el.style.color = '';
+    el.style.backgroundImage = `url("${photoURL}")`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+  } else {
+    el.style.backgroundImage = '';
+    el.textContent = (name||'?').slice(0,2).toUpperCase();
+    styleAvatar(el, colorKey);
+  }
 }
 function applyUserToUI(){
   if(currentUser){
     const av = document.getElementById('userAvatar');
-    av.textContent = currentUser.name.slice(0,2).toUpperCase();
-    styleAvatar(av, currentUser.avatarColor);
+    paintAvatar(av, currentUser.name, currentUser.avatarColor, currentUser.photoURL);
     document.getElementById('userNameLabel').textContent = currentUser.name;
     document.getElementById('userModeLabel').textContent = CLOUD_ENABLED ? 'conta na nuvem' : 'perfil local';
   } else {
@@ -1467,11 +1498,21 @@ document.getElementById('toggleSecretBtn').addEventListener('click', ()=>{
 
 /* ================= PERFIL ================= */
 let selectedAvatarColor = null;
+let selectedPhotoURL = null;
+let photoUploadInFlight = false;
 document.getElementById('userRow').addEventListener('click', ()=>{
   if(!currentUser) return;
   document.getElementById('profileError').style.display = 'none';
   document.getElementById('profileNameInput').value = currentUser.name || '';
   selectedAvatarColor = currentUser.avatarColor || null;
+  selectedPhotoURL = currentUser.photoURL || null;
+  photoUploadInFlight = false;
+  document.getElementById('profilePhotoStatus').textContent = '';
+  paintAvatar(document.getElementById('profilePhotoPreview'), currentUser.name, selectedAvatarColor, selectedPhotoURL);
+  document.getElementById('profilePhotoRemoveBtn').style.display = selectedPhotoURL ? '' : 'none';
+  const showPhoto = CLOUD_ENABLED;
+  document.getElementById('profilePhotoField').style.display = showPhoto ? '' : 'none';
+  document.getElementById('profilePhotoHint').style.display = showPhoto ? 'none' : '';
   const grid = document.getElementById('avatarColorGrid'); grid.innerHTML = '';
   Object.entries(AVATAR_COLORS).forEach(([key, hex])=>{
     const dot = document.createElement('div');
@@ -1481,29 +1522,87 @@ document.getElementById('userRow').addEventListener('click', ()=>{
       selectedAvatarColor = key;
       grid.querySelectorAll('.avatar-color-dot').forEach(d=>d.classList.remove('active'));
       dot.classList.add('active');
+      if(!selectedPhotoURL) paintAvatar(document.getElementById('profilePhotoPreview'), document.getElementById('profileNameInput').value, selectedAvatarColor, null);
     });
     grid.appendChild(dot);
   });
   document.getElementById('profileOverlay').style.display = 'flex';
 });
+document.getElementById('profilePhotoPickBtn').addEventListener('click', ()=> document.getElementById('profilePhotoInput').click());
+document.getElementById('profilePhotoRemoveBtn').addEventListener('click', ()=>{
+  selectedPhotoURL = null;
+  document.getElementById('profilePhotoRemoveBtn').style.display = 'none';
+  document.getElementById('profilePhotoStatus').textContent = '';
+  paintAvatar(document.getElementById('profilePhotoPreview'), document.getElementById('profileNameInput').value, selectedAvatarColor, null);
+});
+document.getElementById('profilePhotoInput').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file || !currentUser) return;
+  if(!file.type.startsWith('image/')){ document.getElementById('profilePhotoStatus').textContent = 'Escolha um arquivo de imagem.'; return; }
+  const statusEl = document.getElementById('profilePhotoStatus');
+  const previewEl = document.getElementById('profilePhotoPreview');
+  try{
+    statusEl.textContent = 'Preparando imagem…';
+    photoUploadInFlight = true;
+    const blob = await resizeImageToSquareBlob(file, 320);
+    previewEl.textContent = '';
+    previewEl.style.backgroundImage = `url("${URL.createObjectURL(blob)}")`;
+    previewEl.style.backgroundSize = 'cover';
+    previewEl.style.backgroundPosition = 'center';
+    statusEl.textContent = 'Enviando foto…';
+    const ref = storage.ref('avatars/' + currentUser.uid + '.jpg');
+    await ref.put(blob, { contentType:'image/jpeg' });
+    const url = await ref.getDownloadURL();
+    selectedPhotoURL = url;
+    document.getElementById('profilePhotoRemoveBtn').style.display = '';
+    statusEl.textContent = 'Foto enviada!';
+  }catch(err){
+    console.warn('Erro ao enviar foto:', err);
+    statusEl.textContent = 'Não deu pra enviar a foto agora' + (!navigator.onLine ? ' (você está offline — tente de novo com internet).' : '. Tente de novo.');
+    paintAvatar(previewEl, document.getElementById('profileNameInput').value, selectedAvatarColor, selectedPhotoURL);
+  } finally {
+    photoUploadInFlight = false;
+  }
+});
+// Redimensiona/corta a imagem num quadrado (evita fotos gigantes e mantém o avatar consistente).
+function resizeImageToSquareBlob(file, size){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      canvas.toBlob(blob=> blob ? resolve(blob) : reject(new Error('Falha ao processar imagem')), 'image/jpeg', 0.85);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem')); };
+    img.src = url;
+  });
+}
 document.getElementById('profileCloseBtn').addEventListener('click', ()=> document.getElementById('profileOverlay').style.display='none');
 document.getElementById('profileCancelBtn').addEventListener('click', ()=> document.getElementById('profileOverlay').style.display='none');
 document.getElementById('profileSaveBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('profileNameInput').value.trim();
   if(!name){ showErr('profileError','Digite um nome.'); return; }
+  if(photoUploadInFlight){ showErr('profileError','Espera a foto terminar de enviar.'); return; }
   try{
     if(CLOUD_ENABLED){
       if(auth.currentUser) await auth.currentUser.updateProfile({ displayName: name });
-      await db.collection('users').doc(currentUser.uid).set({ name, avatarColor: selectedAvatarColor }, { merge:true });
+      await db.collection('users').doc(currentUser.uid).set({ name, avatarColor: selectedAvatarColor, photoURL: selectedPhotoURL || null }, { merge:true });
       if(currentRoom){
         await db.collection('rooms').doc(currentRoom.id).collection('members').doc(currentUser.uid).set({
-          name, avatarColor: selectedAvatarColor
+          name, avatarColor: selectedAvatarColor, photoURL: selectedPhotoURL || null
         }, { merge:true });
       }
     } else {
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify({ ...currentUser, name, avatarColor:selectedAvatarColor }));
     }
-    currentUser.name = name; currentUser.avatarColor = selectedAvatarColor;
+    currentUser.name = name; currentUser.avatarColor = selectedAvatarColor; currentUser.photoURL = selectedPhotoURL || null;
     applyUserToUI(); renderAll();
     document.getElementById('profileOverlay').style.display = 'none';
   }catch(err){ showErr('profileError', friendlyFirestoreError(err)); }
@@ -1516,7 +1615,7 @@ function renderManageRoom(){
   const isOwner = currentRoomData.ownerUid === currentUser.uid;
   Object.entries(members).forEach(([uid, m])=>{
     const row = document.createElement('div'); row.className = 'lb-row';
-    const av = document.createElement('div'); av.className='avatar sm'; av.textContent=(m.name||'?').slice(0,2).toUpperCase(); styleAvatar(av, m.avatarColor);
+    const av = document.createElement('div'); av.className='avatar sm'; paintAvatar(av, m.name, m.avatarColor, m.photoURL);
     const nameDiv = document.createElement('div'); nameDiv.className='lb-name'; nameDiv.textContent = m.name + (uid===currentRoomData.ownerUid ? ' · dono(a)' : '');
     row.appendChild(av); row.appendChild(nameDiv);
     if(isOwner && uid !== currentUser.uid){
@@ -1774,10 +1873,10 @@ function closeTaskDetail(){
 document.getElementById('taskDetailCloseBtn').addEventListener('click', closeTaskDetail);
 document.getElementById('tdCloseBtn2').addEventListener('click', closeTaskDetail);
 
-function commentRow(name, text, timeLabel, avatarColor){
+function commentRow(name, text, timeLabel, avatarColor, photoURL){
   const row = document.createElement('div'); row.style.cssText = 'display:flex; gap:8px; align-items:flex-start;';
-  const av = document.createElement('div'); av.className = 'avatar sm'; av.textContent = (name||'?').slice(0,2).toUpperCase(); av.style.flex = 'none';
-  styleAvatar(av, avatarColor);
+  const av = document.createElement('div'); av.className = 'avatar sm'; av.style.flex = 'none';
+  paintAvatar(av, name, avatarColor, photoURL);
   const body = document.createElement('div'); body.style.cssText = 'flex:1; min-width:0; background:var(--bg-elev); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-size:12.5px;';
   const head = document.createElement('div'); head.style.cssText = 'display:flex; justify-content:space-between; gap:8px; margin-bottom:2px;';
   head.innerHTML = `<b></b><span style="color:var(--text-faint); font-size:10.5px; flex:none;">${timeLabel}</span>`;
@@ -1800,7 +1899,8 @@ function renderTdComments(){
         const c = doc.data();
         const timeLabel = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : 'agora';
         const av = members[c.uid] && members[c.uid].avatarColor;
-        list.appendChild(commentRow(c.name || 'Alguém', c.text, timeLabel, av));
+        const ph = members[c.uid] && members[c.uid].photoURL;
+        list.appendChild(commentRow(c.name || 'Alguém', c.text, timeLabel, av, ph));
       });
       list.scrollTop = list.scrollHeight;
     }, err=>console.warn('Erro ao ler comentários:', err));
@@ -2028,7 +2128,7 @@ function taskRow(dateStr, t, opts={}){
   el.className = 'task' + (st.allDone ? ' done' : '') + (isOthersIndividual ? ' task-others' : (isOverdue ? ' task-overdue' : (partial ? ' partial' : '')));
 
   function liveName(a){ return (members[a.uid] && members[a.uid].name) || a.name || '?'; }
-  const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const hex=AVATAR_COLORS[col]; const style = hex ? ` style="background:${hex}26;color:${hex}"` : ''; return `<div class="avatar sm"${style} title="${nm}">${nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
+  const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const ph=members[a.uid]&&members[a.uid].photoURL; const hex=AVATAR_COLORS[col]; const style = ph ? ` style="background-image:url('${ph}');background-size:cover;background-position:center;"` : (hex ? ` style="background:${hex}26;color:${hex}"` : ''); return `<div class="avatar sm"${style} title="${nm}">${ph ? '' : nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
   let subHtml = '';
   if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
   else if(isOthersIndividual) subHtml = `<div class="task-sub">🔒 Individual de ${liveName(st.assignees[0])}</div>`;
@@ -2313,7 +2413,7 @@ function renderLeaderboard(){
       <div class="lb-stat">${s.done} feitas · ${s.pending} pend.</div>
     `;
     el.appendChild(row);
-    styleAvatar(row.querySelector(`#lbav-${s.uid}`), members[s.uid] && members[s.uid].avatarColor);
+    paintAvatar(row.querySelector(`#lbav-${s.uid}`), s.name, members[s.uid] && members[s.uid].avatarColor, members[s.uid] && members[s.uid].photoURL);
   });
 }
 function renderRoomStats(){

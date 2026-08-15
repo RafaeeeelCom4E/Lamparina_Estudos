@@ -91,6 +91,16 @@ por quem participa de cada uma).
     (por título/descrição) e pills de prioridade (Baixa/Média/Alta),
     combinam com o filtro de status (Todas/Pendentes/Concluídas) que
     já existia.
+25. Upload de foto de perfil real, usando o Firebase Storage: no
+    "Seu perfil", campo novo de foto (a imagem é recortada num
+    quadrado e reduzida antes de enviar, pra ficar leve). A foto
+    aparece pra equipe toda: topbar, lista de membros, ranking,
+    avatares de atividades em grupo e comentários. Precisa ativar o
+    Storage e publicar as regras dele (novo passo 8 no "Passo a passo
+    do Firebase", e nova seção "Regras do Storage" — sem isso o upload
+    falha com erro de permissão, mas o resto do site continua normal).
+    Em modo local (sem Firebase configurado) esse campo não aparece —
+    continua só cor de avatar, como antes.
 
 ## ⚠️ Problema conhecido em aberto: nenhum no momento
 
@@ -100,8 +110,6 @@ anteriores) foi corrigido na etapa 20 — ver histórico acima.
 ## Ideias discutidas, ainda não implementadas
 
 - Exportar/imprimir a semana em PDF ou texto.
-- Upload de foto de perfil real (precisa configurar Firebase Storage
-  primeiro, é um passo a mais no console do Firebase).
 
 Clique em "Instalar app" no topo da tela. No computador ou Android
 isso abre o instalador nativo do navegador; no iPhone/iPad (Safari não
@@ -206,6 +214,11 @@ que ajuda a identificar o problema.
    exemplo.
 7. Salve e publique **os dois arquivos juntos**. Recarregue a página —
    a tela de login (e-mail/senha ou Google) deve aparecer.
+8. **(Novo, para foto de perfil real)** **Storage** → "Vamos começar" →
+   escolha a mesma região do Firestore → na aba **Regras**, cole o
+   conteúdo da seção "Regras do Storage" abaixo e publique. Sem isso,
+   o upload de foto falha com erro de permissão (mas o resto do site
+   funciona normalmente — é só a foto que fica indisponível).
 
 ## Regras do Firestore
 
@@ -287,6 +300,29 @@ qualquer pessoa autenticada tecnicamente consegue lê-la direto do
 banco. Para um grupo de estudos isso costuma ser suficiente, mas não
 trate como segurança forte.
 
+## Regras do Storage
+
+Necessárias a partir desta etapa, para o upload de foto de perfil real
+funcionar (ver passo 8 do "Passo a passo do Firebase" acima). Cada
+pessoa só pode enviar/trocar a própria foto (nome do arquivo tem que
+ser o próprio uid), mas qualquer pessoa autenticada pode ler qualquer
+foto (precisa, pra ver a foto dos colegas de equipe):
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /avatars/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                    && fileName == request.auth.uid + '.jpg'
+                    && request.resource.size < 5 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+  }
+}
+```
+
 ## Como funcionam as atividades
 
 - **Descrição, prioridade e data**: clique em qualquer atividade (ou no
@@ -355,20 +391,24 @@ trate como segurança forte.
 ## Perfil
 
 - Clique no seu nome/avatar na barra lateral (não no ícone de sair) para
-  abrir "Seu perfil": dá para mudar seu **nome de exibição** e escolher
-  uma **cor de avatar** entre seis opções.
-- **Foto de perfil de verdade não está incluída ainda** — isso exige
-  configurar o Firebase Storage (upload de arquivo), que é um passo a
-  mais no Firebase e pode ter custo dependendo do uso. Se quiser, essa
-  é uma boa próxima etapa; por enquanto a cor do avatar já ajuda a
-  diferenciar cada pessoa visualmente nas listas e no ranking.
+  abrir "Seu perfil": dá para mudar seu **nome de exibição**, escolher
+  uma **cor de avatar** entre seis opções, e (em modo nuvem, com
+  Firebase configurado) enviar uma **foto de perfil de verdade**.
+- A foto é recortada num quadrado e reduzida antes de enviar (fica
+  leve, ~poucos KB), e some para o resto da equipe: topbar, lista de
+  membros, ranking, avatares de atividades em grupo e comentários.
+- **Em modo local (sem Firebase configurado), a foto real não está
+  disponível** — o Firebase Storage é quem guarda o arquivo da imagem,
+  e o modo local não tem onde guardar isso; nesse caso continua só a
+  cor do avatar, como antes.
 
 ## Novidades desta etapa
 
-- **Busca/filtro por prioridade**: aba Atividades ganhou campo de
-  busca (título/descrição) e pills de prioridade, combinando com o
-  filtro de status que já existia (ver item 24 do histórico).
+- **Upload de foto de perfil real**: dá pra colocar uma foto de
+  verdade em vez de só cor+iniciais, usando o Firebase Storage (ver
+  item 25 do histórico — **precisa publicar as regras do Storage**,
+  passo 8 novo no "Passo a passo do Firebase").
 
 ## Próxima etapa sugerida
 
-- Exportar semana em PDF, upload de foto de perfil real.
+- Exportar semana em PDF ou texto.
