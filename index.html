@@ -299,6 +299,10 @@ body::before{
 .time-badge{font-size:11px; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:99px; font-weight:700; flex:none;}
 .assignees-list{display:flex; flex-direction:column; gap:6px; max-height:150px; overflow:auto;}
 .assignee-row{display:flex; align-items:center; gap:9px; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px; font-size:12.5px; cursor:pointer;}
+.subtask-lock{flex:none; background:none; border:none; color:var(--text-faint); cursor:pointer; padding:2px; display:flex;}
+.subtask-lock.active{color:var(--accent);}
+.subtask-text-input{flex:1; background:transparent; border:none; color:var(--text); font-size:12.5px; font-family:inherit;}
+.subtask-text-input:focus{outline:none;}
 .assignee-row input[type=checkbox]{width:15px; height:15px; accent-color:var(--accent);}
 
 /* ---- Sala atual / info / avatar cor ---- */
@@ -565,6 +569,12 @@ body::before{
       <div id="assigneesList" class="assignees-list"></div>
       <div style="font-size:11px; color:var(--text-faint); margin-top:6px;">Cada pessoa marcada precisa confirmar sua própria parte. Se nem todo mundo confirmar, a atividade aparece como parcial.</div>
     </div>
+    <div class="field">
+      <label>Sub-tarefas (opcional)</label>
+      <div id="subtasksList" class="assignees-list"></div>
+      <div class="side-add"><input type="text" id="subtaskInput" placeholder="ex: Matemática"><button type="button" id="subtaskAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+      <div class="field-hint">Se tiver sub-tarefas, a atividade só conta como concluída (pro ranking) quando todas estiverem marcadas. Use o cadeado pra deixar uma sub-tarefa só sua — os outros participantes veem, mas não marcam.</div>
+    </div>
     <div style="display:flex; gap:8px; margin-top:6px;">
       <button class="btn btn-ghost" id="taskCancelBtn" style="flex:1; justify-content:center;">Cancelar</button>
       <button class="btn" id="taskSaveBtn" style="flex:1; justify-content:center;">Salvar</button>
@@ -593,6 +603,10 @@ body::before{
     <div id="tdAssigneesWrap" style="margin-top:16px; display:none;">
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Participantes</div>
       <div id="tdAssigneesList" class="assignees-list"></div>
+    </div>
+    <div id="tdSubtasksWrap" style="margin-top:16px; display:none;">
+      <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Sub-tarefas <span id="tdSubtasksCount" style="color:var(--text-faint); font-weight:400;"></span></div>
+      <div id="tdSubtasksList" class="assignees-list"></div>
     </div>
     <div id="tdCommentsWrap" style="margin-top:16px;">
       <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">Comentários</div>
@@ -1033,7 +1047,7 @@ function checkUpcomingNotifications(){
     if(!t.time || seen.has(t.id)) return;
     const st = taskState(t);
     const uid = myUid();
-    if(st.completions[uid]) return; // já concluída, não precisa avisar
+    if(st.subtasks && st.subtasks.length ? st.allDone : st.completions[uid]) return; // já concluída, não precisa avisar
     const [hh,mm] = t.time.split(':').map(Number);
     if(isNaN(hh) || isNaN(mm)) return;
     const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
@@ -1364,9 +1378,13 @@ function startRoomListeners(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(!activities[d.date]) activities[d.date] = [];
-      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', links:d.links||(d.link?[d.link]:[]), priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{} });
+      activities[d.date].push({ id:doc.id, text:d.text, description:d.description||'', links:d.links||(d.link?[d.link]:[]), priority:d.priority||'media', time:d.time||'', recurrenceId:d.recurrenceId||null, creatorUid:d.creatorUid||null, creatorName:d.creatorName||'', assignees:d.assignees||[], completions:d.completions||{}, subtasks:d.subtasks||[] });
     });
     renderAll(); renderCalendar();
+    if(currentDetailTask){
+      const fresh = (activities[currentDetailTask.dateStr]||[]).find(x=>x.id===currentDetailTask.activity.id);
+      if(fresh) openTaskDetail(currentDetailTask.dateStr, fresh);
+    }
   }, err=>console.warn('Erro ao ler atividades:', err));
   unsubMembers = db.collection('rooms').doc(currentRoom.id).collection('members').onSnapshot(snap=>{
     members = {};
@@ -1701,8 +1719,37 @@ document.getElementById('roomEditSaveBtn').addEventListener('click', async ()=>{
 function taskState(t){
   const assignees = (t.assignees && t.assignees.length) ? t.assignees : [{ uid: myUid(), name: currentUser ? currentUser.name : 'Eu' }];
   const completions = t.completions || {};
+  const subtasks = t.subtasks || [];
+  if(subtasks.length){
+    const allSubDone = subtasks.every(s=>s.done);
+    return { assignees, completions, doneCount: allSubDone ? assignees.length : 0, total: assignees.length, allDone: allSubDone, subtasks };
+  }
   const doneCount = assignees.filter(a=>completions[a.uid]).length;
-  return { assignees, completions, doneCount, total: assignees.length, allDone: doneCount>0 && doneCount===assignees.length };
+  return { assignees, completions, doneCount, total: assignees.length, allDone: doneCount>0 && doneCount===assignees.length, subtasks };
+}
+function isTaskDoneForUser(t, uid){
+  const st = taskState(t);
+  return (st.subtasks && st.subtasks.length) ? st.allDone : !!st.completions[uid];
+}
+function canToggleSubtask(t, sub){
+  const uid = myUid();
+  const st = taskState(t);
+  if(!st.assignees.some(a=>a.uid===uid)) return false;
+  return sub.locked ? sub.ownerUid===uid : true;
+}
+function toggleSubtask(dateStr, taskId, subId){
+  const list = activities[dateStr]; if(!list) return;
+  const t = list.find(x=>x.id===taskId); if(!t || !t.subtasks) return;
+  const sub = t.subtasks.find(s=>s.id===subId); if(!sub) return;
+  if(!canToggleSubtask(t, sub)) return;
+  const newSubtasks = t.subtasks.map(s=> s.id===subId ? { ...s, done: !s.done, doneBy: !s.done ? myUid() : null } : s);
+  if(CLOUD_ENABLED && currentRoom){
+    db.collection('rooms').doc(currentRoom.id).collection('activities').doc(taskId).update({ subtasks: newSubtasks }).catch(err=>alert(friendlyFirestoreError(err)));
+  } else {
+    t.subtasks = newSubtasks;
+    localSave(); renderAll(); renderCalendar();
+    if(currentDetailTask && currentDetailTask.activity.id===taskId) openTaskDetail(dateStr, t);
+  }
 }
 function canManageTask(t){
   const st = taskState(t);
@@ -1717,13 +1764,13 @@ function createActivity(payload){
   if(CLOUD_ENABLED && currentRoom){
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
     db.collection('rooms').doc(currentRoom.id).collection('activities').add({
-      ...payload, completions, creatorUid: currentUser.uid, creatorName: currentUser.name,
+      ...payload, subtasks: payload.subtasks||[], completions, creatorUid: currentUser.uid, creatorName: currentUser.name,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     if(!activities[payload.date]) activities[payload.date] = [];
     const completions = {}; payload.assignees.forEach(a=>completions[a.uid]=false);
-    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions });
+    activities[payload.date].push({ id: Date.now()+Math.random().toString(16).slice(2), text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:payload.recurrenceId||null, creatorUid: myUid(), creatorName: currentUser?currentUser.name:'Eu', assignees:payload.assignees, completions, subtasks:payload.subtasks||[] });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1731,15 +1778,16 @@ function updateActivity(dateStr, id, payload, oldActivity){
   const oldCompletions = oldActivity.completions || {};
   const completions = {};
   payload.assignees.forEach(a=> completions[a.uid] = oldCompletions[a.uid] || false);
+  const subtasks = payload.subtasks !== undefined ? payload.subtasks : (oldActivity.subtasks||[]);
   if(CLOUD_ENABLED && currentRoom){
     db.collection('rooms').doc(currentRoom.id).collection('activities').doc(id).update({
-      text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions
+      text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', date:payload.date, assignees:payload.assignees, completions, subtasks
     }).catch(err=>alert(friendlyFirestoreError(err)));
   } else {
     activities[dateStr] = (activities[dateStr]||[]).filter(x=>x.id!==id);
     if(activities[dateStr].length===0) delete activities[dateStr];
     if(!activities[payload.date]) activities[payload.date] = [];
-    activities[payload.date].push({ id, text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions });
+    activities[payload.date].push({ id, text:payload.text, description:payload.description, links:payload.links||[], priority:payload.priority, time:payload.time||'', recurrenceId:oldActivity.recurrenceId||null, creatorUid:oldActivity.creatorUid||myUid(), creatorName:oldActivity.creatorName||(currentUser?currentUser.name:'Eu'), assignees:payload.assignees, completions, subtasks });
     localSave(); renderAll(); renderCalendar();
   }
 }
@@ -1856,6 +1904,26 @@ function openTaskDetail(dateStr, t){
     assigneesWrap.style.display = 'none';
   }
 
+  const subtasks = t.subtasks || [];
+  const subtasksWrap = document.getElementById('tdSubtasksWrap');
+  if(subtasks.length){
+    subtasksWrap.style.display = 'block';
+    const doneN = subtasks.filter(s=>s.done).length;
+    document.getElementById('tdSubtasksCount').textContent = `(${doneN}/${subtasks.length})`;
+    const list = document.getElementById('tdSubtasksList'); list.innerHTML = '';
+    subtasks.forEach(sub=>{
+      const canToggle = canToggleSubtask(t, sub);
+      const row = document.createElement('div'); row.className = 'assignee-row'; row.style.cursor = canToggle ? 'pointer' : 'default';
+      if(!canToggle) row.style.opacity = '0.65';
+      const ownerName = (members[sub.ownerUid] && members[sub.ownerUid].name) || (sub.ownerUid===myUid() ? 'você' : '?');
+      row.innerHTML = `<span style="color:${sub.done ? 'var(--accent)' : 'var(--text-faint)'}; font-weight:700; flex:none;">${sub.done ? '✓' : '○'}</span><span style="flex:1;">${sub.text}</span>${sub.locked ? `<span title="Só ${ownerName} pode marcar" style="flex:none; color:var(--text-faint); font-size:11px;">🔒</span>` : ''}`;
+      if(canToggle) row.addEventListener('click', ()=> toggleSubtask(dateStr, t.id, sub.id));
+      list.appendChild(row);
+    });
+  } else {
+    subtasksWrap.style.display = 'none';
+  }
+
   const editBtn = document.getElementById('tdEditBtn');
   if(canManageTask(t)){
     editBtn.style.display = 'flex';
@@ -1948,6 +2016,9 @@ function openTaskModal(opts){
   modalLinks = t ? getActivityLinks(t).slice() : [];
   document.getElementById('taskLinkInput').value = '';
   renderModalLinksList();
+  modalSubtasks = t ? (t.subtasks||[]).map(s=>({ ...s })) : [];
+  document.getElementById('subtaskInput').value = '';
+  renderModalSubtasksList();
   document.getElementById('taskDateInput').value = t ? (t.date || opts.dateStr) : (opts.dateStr || todayStr());
   document.getElementById('taskTimeInput').value = t ? (t.time||'') : '';
   modalPriority = t ? (t.priority||'media') : 'media';
@@ -1998,6 +2069,36 @@ function addModalLink(){
 }
 document.getElementById('taskLinkAddBtn').addEventListener('click', addModalLink);
 document.getElementById('taskLinkInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addModalLink(); } });
+let modalSubtasks = [];
+function renderModalSubtasksList(){
+  const list = document.getElementById('subtasksList'); list.innerHTML = '';
+  modalSubtasks.forEach((sub, i)=>{
+    const row = document.createElement('div'); row.className = 'assignee-row'; row.style.cursor = 'default';
+    const lockBtn = document.createElement('button'); lockBtn.type = 'button'; lockBtn.className = 'subtask-lock' + (sub.locked ? ' active' : '');
+    lockBtn.title = sub.locked ? 'Só você pode marcar essa sub-tarefa (clique pra abrir pro grupo)' : 'Qualquer participante pode marcar (clique pra deixar só sua)';
+    lockBtn.innerHTML = sub.locked
+      ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 017.8-1.3"/></svg>';
+    lockBtn.addEventListener('click', ()=>{ sub.locked = !sub.locked; renderModalSubtasksList(); });
+    const input = document.createElement('input'); input.type = 'text'; input.className = 'subtask-text-input'; input.value = sub.text; input.maxLength = 60;
+    input.addEventListener('input', ()=>{ sub.text = input.value; });
+    const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'icon-btn'; rm.style.flex = 'none';
+    rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    rm.addEventListener('click', ()=>{ modalSubtasks.splice(i,1); renderModalSubtasksList(); });
+    row.appendChild(lockBtn); row.appendChild(input); row.appendChild(rm);
+    list.appendChild(row);
+  });
+}
+function addModalSubtask(){
+  const input = document.getElementById('subtaskInput');
+  const text = input.value.trim();
+  if(!text) return;
+  modalSubtasks.push({ id:'sub_'+Date.now()+'_'+Math.random().toString(16).slice(2), text, ownerUid: myUid(), locked:false, done:false, doneBy:null });
+  input.value = '';
+  renderModalSubtasksList();
+}
+document.getElementById('subtaskAddBtn').addEventListener('click', addModalSubtask);
+document.getElementById('subtaskInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addModalSubtask(); } });
 document.getElementById('taskCloseBtn').addEventListener('click', closeTaskModal);
 document.getElementById('taskCancelBtn').addEventListener('click', closeTaskModal);
 document.querySelectorAll('.prio-btn').forEach(b=>{
@@ -2032,6 +2133,11 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
   const dateStr = document.getElementById('taskDateInput').value || todayStr();
   const timeStr = document.getElementById('taskTimeInput').value || '';
   if(!title){ showErr('taskError','Digite um título.'); return; }
+  const pendingSub = document.getElementById('subtaskInput').value.trim();
+  const subtasks = pendingSub
+    ? modalSubtasks.concat([{ id:'sub_'+Date.now()+'_'+Math.random().toString(16).slice(2), text:pendingSub, ownerUid: myUid(), locked:false, done:false, doneBy:null }])
+    : modalSubtasks;
+  const cleanSubtasks = subtasks.filter(s=>s.text && s.text.trim()).map(s=>({ ...s, text:s.text.trim() }));
   const isRepeating = !editingTask && selectedWeekdays.size>0;
   const repeatUntil = document.getElementById('taskRepeatUntil').value;
   if(isRepeating && !repeatUntil){ showErr('taskError','Escolha até quando repetir.'); return; }
@@ -2050,11 +2156,11 @@ document.getElementById('taskSaveBtn').addEventListener('click', ()=>{
     if(dates.length===0){ showErr('taskError','Nenhuma data cai nos dias escolhidos dentro desse período.'); return; }
     const recurrenceId = 'rec_' + Date.now() + '_' + Math.random().toString(16).slice(2);
     dates.forEach(ds=>{
-      createActivity({ text:title, description:desc, links, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId });
+      createActivity({ text:title, description:desc, links, priority:modalPriority, time:timeStr, date:ds, assignees, recurrenceId, subtasks: cleanSubtasks.map(s=>({...s})) });
     });
     closeTaskModal();
   } else {
-    const payload = { text:title, description:desc, links, priority:modalPriority, time:timeStr, date:dateStr, assignees };
+    const payload = { text:title, description:desc, links, priority:modalPriority, time:timeStr, date:dateStr, assignees, subtasks: cleanSubtasks };
     if(editingTask){
       const capturedDateStr = editingTask.dateStr, capturedActivity = editingTask.activity;
       closeTaskModal();
@@ -2118,7 +2224,8 @@ function taskRow(dateStr, t, opts={}){
   const st = taskState(t);
   const uid = myUid();
   const iAmAssignee = st.assignees.some(a=>a.uid===uid);
-  const myDone = !!st.completions[uid];
+  const hasSubtasks = st.subtasks && st.subtasks.length>0;
+  const myDone = hasSubtasks ? st.allDone : !!st.completions[uid];
   const isGroup = st.assignees.length > 1;
   const partial = !st.allDone && st.doneCount > 0;
   const isOverdue = !st.allDone && dateStr < todayStr();
@@ -2131,13 +2238,17 @@ function taskRow(dateStr, t, opts={}){
   function liveName(a){ return (members[a.uid] && members[a.uid].name) || a.name || '?'; }
   const avatarsHtml = isGroup ? `<div class="avatar-stack">${st.assignees.slice(0,4).map(a=>{ const nm=liveName(a); const col=members[a.uid]&&members[a.uid].avatarColor; const ph=members[a.uid]&&members[a.uid].photoURL; const hex=AVATAR_COLORS[col]; const style = ph ? ` style="background-image:url('${ph}');background-size:cover;background-position:center;"` : (hex ? ` style="background:${hex}26;color:${hex}"` : ''); return `<div class="avatar sm"${style} title="${nm}">${ph ? '' : nm.slice(0,2).toUpperCase()}</div>`; }).join('')}</div>` : '';
   let subHtml = '';
-  if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
+  if(hasSubtasks){
+    const doneN = st.subtasks.filter(s=>s.done).length;
+    subHtml = `<div class="task-sub">${avatarsHtml}<span>☑ ${doneN}/${st.subtasks.length} sub-tarefas</span></div>`;
+  }
+  else if(isGroup) subHtml = `<div class="task-sub">${avatarsHtml}<span>${st.doneCount}/${st.total} confirmaram</span></div>`;
   else if(isOthersIndividual) subHtml = `<div class="task-sub">🔒 Individual de ${liveName(st.assignees[0])}</div>`;
   else if(t.description) subHtml = `<div class="task-sub">📝 ${(t.description.length>60 ? t.description.slice(0,60)+'…' : t.description)}</div>`;
 
   const canManage = canManageTask(t);
   el.innerHTML = `
-    <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade'}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
+    <button class="check ${myDone?'mine-checked':''} ${!iAmAssignee?'mine-disabled':''}" title="${hasSubtasks ? 'Abrir sub-tarefas' : (iAmAssignee ? 'Marcar sua parte' : 'Você não está nesta atividade')}">${myDone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</button>
     <div class="task-main">
       <div class="task-top">${t.time ? `<span class="time-badge">${t.time}</span>` : ''}<span class="prio-dot" style="background:${prio.color}"></span><span class="task-text"></span>${t.recurrenceId ? '<span title="Atividade recorrente" style="color:var(--text-faint); font-size:12px;">↻</span>' : ''}${getActivityLinks(t).length ? `<span title="${getActivityLinks(t).length} link(s) anexado(s)" style="color:var(--text-faint); font-size:12px;">🔗${getActivityLinks(t).length>1?' '+getActivityLinks(t).length:''}</span>` : ''}</div>
       ${subHtml}
@@ -2147,7 +2258,10 @@ function taskRow(dateStr, t, opts={}){
     ${canManage ? `<button class="task-del" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : ''}
   `;
   el.querySelector('.task-text').textContent = t.text;
-  el.querySelector('.check').addEventListener('click', ()=>{ if(iAmAssignee) toggleOwnCompletion(dateStr, t.id); });
+  el.querySelector('.check').addEventListener('click', ()=>{
+    if(hasSubtasks) openTaskDetail(dateStr, t);
+    else if(iAmAssignee) toggleOwnCompletion(dateStr, t.id);
+  });
   el.querySelector('.task-main').addEventListener('click', ()=> openTaskDetail(dateStr, t));
   const editBtn = el.querySelector('.task-edit');
   if(editBtn) editBtn.addEventListener('click', (e)=>{ e.stopPropagation(); openTaskModal({ mode:'edit', dateStr, activity:t }); });
@@ -2167,13 +2281,13 @@ function renderDashboard(){
   const uid = myUid();
   const t = todayStr();
   const todayMine = myTasksForDate(t);
-  const todayDone = todayMine.filter(tk=> !!(tk.completions && tk.completions[uid])).length;
+  const todayDone = todayMine.filter(tk=> isTaskDoneForUser(tk, uid)).length;
   document.getElementById('statToday').textContent = todayDone;
   document.getElementById('statPending').textContent = todayMine.length - todayDone;
 
   let weekDone = 0;
   const base = new Date();
-  for(let i=0;i<7;i++){ const d=new Date(base); d.setDate(base.getDate()-i); weekDone += myTasksForDate(fmtDate(d)).filter(tk=>tk.completions && tk.completions[uid]).length; }
+  for(let i=0;i<7;i++){ const d=new Date(base); d.setDate(base.getDate()-i); weekDone += myTasksForDate(fmtDate(d)).filter(tk=>isTaskDoneForUser(tk, uid)).length; }
   document.getElementById('statWeek').textContent = weekDone;
 
   let streak = 0;
@@ -2181,14 +2295,14 @@ function renderDashboard(){
     const d=new Date(base); d.setDate(base.getDate()-i);
     const list = myTasksForDate(fmtDate(d));
     if(list.length===0){ if(i===0) continue; else break; }
-    if(list.every(tk=>tk.completions && tk.completions[uid])) streak++; else break;
+    if(list.every(tk=>isTaskDoneForUser(tk, uid))) streak++; else break;
   }
   document.getElementById('statStreak').textContent = streak;
 
   const todayEl = document.getElementById('todayList'); todayEl.innerHTML = '';
   if(todayMine.length===0) todayEl.appendChild(emptyMsg('Nenhuma atividade para hoje. Adicione uma acima ✦'));
   else todayMine.slice().sort((a,b)=>{
-    const da = a.completions&&a.completions[uid]?1:0, db = b.completions&&b.completions[uid]?1:0;
+    const da = isTaskDoneForUser(a,uid)?1:0, db = isTaskDoneForUser(b,uid)?1:0;
     if(da!==db) return da-db;
     return (a.time||'99:99').localeCompare(b.time||'99:99');
   }).forEach(tk=>todayEl.appendChild(taskRow(t, tk)));
@@ -2327,7 +2441,7 @@ function renderPendingBox(){
   dates.forEach(ds=>{
     activities[ds].filter(t=>{
       const st = taskState(t);
-      return st.assignees.some(a=>a.uid===uid) && !st.completions[uid];
+      return st.assignees.some(a=>a.uid===uid) && !isTaskDoneForUser(t, uid);
     }).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'))
       .forEach(t=>{ pendEl.appendChild(taskRow(ds, t, {showDate:true})); any = true; });
   });
@@ -2398,7 +2512,7 @@ function renderLeaderboard(){
     Object.values(activities).forEach(list=>{
       list.forEach(t=>{
         const st = taskState(t);
-        if(st.assignees.some(a=>a.uid===uid)){ (t.completions && t.completions[uid]) ? done++ : pending++; }
+        if(st.assignees.some(a=>a.uid===uid)){ isTaskDoneForUser(t, uid) ? done++ : pending++; }
       });
     });
     return { uid, name: members[uid].name || 'Membro', done, pending };

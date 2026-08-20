@@ -107,6 +107,22 @@ por quem participa de cada uma).
     de membros, ranking, avatares de atividades em grupo e comentários.
     Em modo local (sem Firebase configurado) esse campo não aparece —
     continua só cor de avatar, como antes.
+27. Sub-tarefas dentro de uma atividade: ao criar/editar, dá pra
+    quebrar a atividade em itens menores (ex: "Estudar" → "Matemática",
+    "História"...), cada um com seu próprio checkbox. Cada sub-tarefa
+    pode ficar **aberta** (qualquer participante da atividade marca) ou
+    **trancada** com um cadeado (só quem criou aquela sub-tarefa pode
+    marcar — os outros participantes só veem). A atividade só conta
+    como **concluída de verdade** (pro ranking da Equipe, streak,
+    estatísticas do Painel etc.) quando **todas** as sub-tarefas
+    estiverem marcadas — isso substitui a lógica antiga de "cada um
+    confirma sua parte" só nas atividades que têm sub-tarefas; as que
+    não têm continuam exatamente como antes. Na lista compacta de
+    atividades aparece um contador "2/4 sub-tarefas" no lugar do
+    checkbox simples; o checklist interativo de verdade fica dentro do
+    modal de detalhe da atividade. Não precisou mudar as regras do
+    Firestore — já liberavam atualização por participante/criador sem
+    travar por campo específico.
 
 ## ⚠️ Problema conhecido em aberto: nenhum no momento
 
@@ -315,6 +331,17 @@ trate como segurança forte.
   pessoas participam e só 2 confirmaram, a atividade aparece com uma
   barra amarela e "2/3 confirmaram" — só fica com a lamparina acesa
   quando todo mundo confirmar.
+- **Sub-tarefas (opcional)**: dá pra quebrar uma atividade em itens
+  menores, cada um com seu próprio checkbox — ex: "Estudar" vira
+  "Matemática", "História", "Física". Cada sub-tarefa pode ficar
+  **aberta** (qualquer participante da atividade marca) ou **trancada**
+  com um cadeado (só quem criou aquela sub-tarefa pode marcar; os
+  outros participantes só veem, sem poder mexer). Quando a atividade
+  tem sub-tarefas, isso **substitui** a lógica de "cada um confirma sua
+  parte": ela só conta como concluída (pro ranking, streak e
+  estatísticas) quando **todas** as sub-tarefas estiverem marcadas,
+  não importa quem marcou cada uma. Sem sub-tarefas, a atividade
+  continua funcionando exatamente como antes.
 - **CRUD completo**: criar (botão "Adicionar" ou "Detalhes"), editar
   (clique na atividade), marcar/desmarcar sua própria confirmação, e
   excluir (ícone de lixeira) — toda exclusão pede confirmação antes.
@@ -386,10 +413,11 @@ trate como segurança forte.
 
 ## Novidades desta etapa
 
-- **Upload de foto de perfil real**: dá pra colocar uma foto de
-  verdade em vez de só cor+iniciais — guardada direto no Firestore, sem
-  precisar de nenhum passo extra no console nem de plano pago (ver
-  itens 25 e 26 do histórico).
+- **Sub-tarefas dentro de uma atividade**: checklist interno, cada
+  item podendo ser aberto (qualquer participante marca) ou trancado
+  com cadeado (só o dono daquela sub-tarefa marca). A atividade só
+  conta como concluída quando todas as sub-tarefas estiverem marcadas
+  (ver item 27 do histórico).
 
 ## Próxima etapa sugerida
 
